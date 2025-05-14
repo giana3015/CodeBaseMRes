@@ -56,7 +56,7 @@ for i = 1:length(dayFolders)
 end
 
 % === Define base and output folder ===
-basePath = '/Users/gianalee/Desktop/sarah''s data/Data/';
+basePath = '/home/barrylab/Documents/Giana/Data/correlation matrix';
 outputFolder = fullfile(basePath, 'all_groupCorrMatrix_pngs');
 
 if ~exist(outputFolder, 'dir')
