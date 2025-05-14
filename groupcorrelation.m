@@ -54,3 +54,40 @@ for i = 1:length(dayFolders)
 
     fprintf('✅ Saved groupCorrMatrix and meanCorrValue for %s\n', dayName);
 end
+
+% === Define base and output folder ===
+basePath = '/Users/gianalee/Desktop/sarah''s data/Data/';
+outputFolder = fullfile(basePath, 'all_groupCorrMatrix_pngs');
+
+if ~exist(outputFolder, 'dir')
+    mkdir(outputFolder);
+end
+
+% === Find all mouse folders ===
+mouseFolders = dir(basePath);
+mouseFolders = mouseFolders([mouseFolders.isdir] & startsWith({mouseFolders.name}, 'm'));
+
+for i = 1:length(mouseFolders)
+    mouseID = mouseFolders(i).name;
+    mousePath = fullfile(basePath, mouseID);
+
+    % Find date folders inside this mouse folder
+    dayFolders = dir(mousePath);
+    dayFolders = dayFolders([dayFolders.isdir] & ~startsWith({dayFolders.name}, '.'));
+
+    for j = 1:length(dayFolders)
+        dayName = dayFolders(j).name;
+        dayPath = fullfile(mousePath, dayName);
+
+        % Define the PNG file path
+        pngPath = fullfile(dayPath, 'groupCorrMatrix.png');
+
+        if isfile(pngPath)
+            newName = sprintf('%s_%s_groupCorrMatrix.png', mouseID, dayName);
+            copyfile(pngPath, fullfile(outputFolder, newName));
+        end
+    end
+end
+
+fprintf('✅ Done extracting and renaming all groupCorrMatrix.png files.\n');
+
