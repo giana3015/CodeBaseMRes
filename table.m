@@ -82,3 +82,36 @@ clearvars;          % Clear all variables
 close all;          % Close all figure windows
 
 
+% Load your data
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+T.MouseID = string(T.MouseID);
+mice = unique(T.MouseID);
+
+% Compute mean per mouse
+meanMorning = zeros(numel(mice),1);
+meanAfternoon = zeros(numel(mice),1);
+meanFullDay = zeros(numel(mice),1);
+
+for i = 1:numel(mice)
+    idx = T.MouseID == mice(i);
+    meanMorning(i) = mean(T.MorningCorr(idx), 'omitnan');
+    meanAfternoon(i) = mean(T.AfternoonCorr(idx), 'omitnan');
+    meanFullDay(i) = mean(T.MeanCorrValue(idx), 'omitnan');
+end
+
+% Stack into long format
+y = [meanMorning; meanAfternoon; meanFullDay];
+group = [repmat("Morning", numel(mice), 1);
+         repmat("Afternoon", numel(mice), 1);
+         repmat("Full Day", numel(mice), 1)];
+
+% === Plot boxplot with scatter ===
+figure;
+boxplot(y, group);
+hold on;
+scatter(double(categorical(group)), y, 30, 'filled', 'MarkerFaceAlpha', 0.4)
+hold off;
+
+ylabel('Mean Correlation per Mouse')
+title('Place Cell Stability Across Morning, Afternoon, and Full-Day Sessions')
+grid on
