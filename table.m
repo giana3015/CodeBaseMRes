@@ -118,3 +118,39 @@ xlabel('Session Type')
 ylabel('Mean Correlation per Mouse')
 title('Each Dot = One Mouse''s Mean Correlation')
 grid on
+
+% Load table
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+T.MouseID = string(T.MouseID);
+mice = unique(T.MouseID);
+
+% Collect mean correlations
+meanMorning = zeros(numel(mice), 1);
+meanAfternoon = zeros(numel(mice), 1);
+meanFullDay = zeros(numel(mice), 1);
+
+for i = 1:numel(mice)
+    mouse = mice(i);
+    rows = T.MouseID == mouse;
+
+    meanMorning(i) = mean(T.MorningCorr(rows), 'omitnan');
+    meanAfternoon(i) = mean(T.AfternoonCorr(rows), 'omitnan');
+    meanFullDay(i) = mean(T.MeanCorrValue(rows), 'omitnan');
+end
+
+% Stack into long format
+y = [meanMorning; meanAfternoon; meanFullDay];
+session = [repmat("Morning", numel(mice), 1);
+           repmat("Afternoon", numel(mice), 1);
+           repmat("Full Day", numel(mice), 1)];
+
+% Plot violin + scatter
+figure;
+violinplot(y, session);
+hold on;
+scatter(double(session), y, 30, 'filled', 'MarkerFaceAlpha', 0.5)
+hold off;
+
+ylabel('Mean Correlation per Mouse')
+title('Distribution of Place Cell Stability Across Morning, Afternoon, and Full-Day Sessions')
+grid on
