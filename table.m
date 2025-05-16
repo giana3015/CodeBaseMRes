@@ -115,3 +115,50 @@ hold off;
 ylabel('Mean Correlation per Mouse')
 title('Place Cell Stability Across Morning, Afternoon, and Full-Day Sessions')
 grid on
+
+% === Set paths ===
+rootFolder = '/home/barrylab/Documents/Giana/Data/';
+outputMorning = fullfile(rootFolder, 'grouped morning trail png');
+outputAfternoon = fullfile(rootFolder, 'grouped afternoon trail png');
+
+% === Create folders if they don't exist ===
+if ~exist(outputMorning, 'dir')
+    mkdir(outputMorning);
+end
+if ~exist(outputAfternoon, 'dir')
+    mkdir(outputAfternoon);
+end
+
+% === Get all m**** mouse folders ===
+mouseFolders = dir(fullfile(rootFolder, 'correlation matrix', 'm*'));
+
+% === Loop through each mouse folder ===
+for i = 1:length(mouseFolders)
+    mouseID = mouseFolders(i).name;
+    mousePath = fullfile(mouseFolders(i).folder, mouseID);
+    
+    % Get all date folders under this mouse
+    dateFolders = dir(fullfile(mousePath, '2020*'));
+    
+    for j = 1:length(dateFolders)
+        dateStr = dateFolders(j).name;
+        datePath = fullfile(dateFolders(j).folder, dateStr);
+        
+        % === Build expected PNG paths ===
+        morningPNG = fullfile(datePath, 'grouped morningtrail', 'groupMorningCorrMatrix.png');
+        afternoonPNG = fullfile(datePath, 'grouped afternoontail', 'groupAfternoonCorrMatrix.png');
+
+        % === Copy if exists ===
+        if exist(morningPNG, 'file')
+            newName = sprintf('%s_%s_grouped_morning.png', mouseID, dateStr);
+            copyfile(morningPNG, fullfile(outputMorning, newName));
+        end
+
+        if exist(afternoonPNG, 'file')
+            newName = sprintf('%s_%s_grouped_afternoon.png', mouseID, dateStr);
+            copyfile(afternoonPNG, fullfile(outputAfternoon, newName));
+        end
+    end
+end
+
+disp('✅ All PNGs copied and renamed!');
