@@ -81,34 +81,40 @@ clc;                % Clear Command Window
 clearvars;          % Clear all variables
 close all;          % Close all figure windows
 
-% === Load your CSV ===
+% Load table
 T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
 
-% === Group by MouseID ===
-G = findgroups(T.MouseID);
+% Ensure consistent formatting
+T.MouseID = string(T.MouseID);
 
-% === Compute mean values per mouse ===
+% Get unique mice
 mice = unique(T.MouseID);
-meanMorning = splitapply(@(x) mean(x, 'omitnan'), T.MorningCorr, G);
-meanAfternoon = splitapply(@(x) mean(x, 'omitnan'), T.AfternoonCorr, G);
-meanFullDay = splitapply(@(x) mean(x, 'omitnan'), T.MeanCorrValue, G);
 
-% === Stack values for scatter ===
-% Each mouse gets 3 values: [Morning, Afternoon, FullDay]
-xLabels = {'Morning', 'Afternoon', 'Full Day'};
-x = repelem(1:3, numel(mice))';  % 1,1,1,2,2,2,...
+% Preallocate
+meanMorning = zeros(numel(mice), 1);
+meanAfternoon = zeros(numel(mice), 1);
+meanFullDay = zeros(numel(mice), 1);
+
+% Calculate mean per mouse
+for i = 1:numel(mice)
+    mouse = mice(i);
+    rows = T.MouseID == mouse;
+
+    meanMorning(i) = mean(T.MorningCorr(rows), 'omitnan');
+    meanAfternoon(i) = mean(T.AfternoonCorr(rows), 'omitnan');
+    meanFullDay(i) = mean(T.MeanCorrValue(rows), 'omitnan');
+end
+
+% Stack into long format
+x = [repmat(1, numel(mice), 1); repmat(2, numel(mice), 1); repmat(3, numel(mice), 1)];
 y = [meanMorning; meanAfternoon; meanFullDay];
-y = y(:);
 
-% === Mouse grouping (to color-code) ===
-mouseGroup = repelem(1:numel(mice), 3)';
-
-% === Plot ===
+% Plot
 figure;
-gscatter(x, y, mouseGroup, [], [], 12);
-xticks(1:3);
-xticklabels(xLabels);
-xlabel('Session Type');
-ylabel('Mean Correlation');
-title('Mouse-wise Mean Correlation per Session Type');
-grid on;
+scatter(x, y, 40, 'filled', 'MarkerFaceAlpha', 0.7)
+xticks([1 2 3])
+xticklabels({'Morning', 'Afternoon', 'Full Day'})
+xlabel('Session Type')
+ylabel('Mean Correlation per Mouse')
+title('Each Dot = One Mouse''s Mean Correlation')
+grid on
