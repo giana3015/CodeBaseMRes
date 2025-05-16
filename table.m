@@ -58,6 +58,29 @@ T.AfternoonCorr = afternoonCorr;
 outputPath = fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv');
 writetable(T, outputPath);
 
+% Test exact file
+testFile = '/home/barrylab/Documents/Giana/Data/correlation matrix/m4005/20200924/grouped afternoontail/meanAfternoonCorr.mat';
+
+% Check file exists
+if exist(testFile, 'file')
+    fprintf('📁 File FOUND: %s\n', testFile);
+    s = load(testFile);
+    varNames = fieldnames(s);
+    disp('📎 Fieldnames inside file:');
+    disp(varNames);
+    
+    % Try to extract value
+    val = s.(varNames{1});
+    if isscalar(val)
+        fprintf('✅ Scalar value extracted: %.4f\n', val);
+    else
+        fprintf('⚠️ Value is not scalar. Here''s its content:\n');
+        disp(val);
+    end
+else
+    fprintf('❌ File NOT found: %s\n', testFile);
+end
+
 fprintf('\n✅ DONE: Saved to %s\n', outputPath);
 clc;                % Clear Command Window
 clearvars;          % Clear all variables
