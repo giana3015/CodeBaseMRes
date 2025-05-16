@@ -2,26 +2,31 @@
 rootFolder = '/home/barrylab/Documents/Giana/Data/';
 csvFile = fullfile(rootFolder, 'all_corr_values.csv');
 
-% Load existing table
-T = readtable(csvFile);
+% === Fix CSV loading ===
+raw = readtable(csvFile, 'ReadVariableNames', false);  % one-column table
+data = split(raw{:,1}, ',');  % split single string column into actual values
 
-% Initialize new columns
+% === Create proper table ===
+T = table(data(:,1), data(:,2), str2double(data(:,3)), ...
+    'VariableNames', {'MouseID', 'Date', 'MeanCorrValue'});
+
+% === Initialize new columns ===
 morningCorr = nan(height(T), 1);
 afternoonCorr = nan(height(T), 1);
 
-% Loop through each mouse-date entry
+% === Loop through each row ===
 for i = 1:height(T)
     mouseID = T.MouseID{i};
     dateStr = T.Date{i};
-
-    % Construct base path for this entry
+    
+    % Path to the day's folder
     basePath = fullfile(rootFolder, 'correlation matrix', mouseID, dateStr);
-
-    % Define paths to morning and afternoon files
+    
+    % File paths
     morningFile = fullfile(basePath, 'grouped morningtrail', 'meanMorningCorr.mat');
     afternoonFile = fullfile(basePath, 'grouped afternoontrail', 'meanAfternoonCorr.mat');
-
-    % Load and assign morning value
+    
+    % Load morning
     if exist(morningFile, 'file')
         data = load(morningFile);
         val = struct2array(data);
@@ -33,8 +38,8 @@ for i = 1:height(T)
     else
         warning('Missing file: %s', morningFile);
     end
-
-    % Load and assign afternoon value
+    
+    % Load afternoon
     if exist(afternoonFile, 'file')
         data = load(afternoonFile);
         val = struct2array(data);
@@ -48,12 +53,11 @@ for i = 1:height(T)
     end
 end
 
-% Append to table
+% === Append new columns ===
 T.MorningCorr = morningCorr;
 T.AfternoonCorr = afternoonCorr;
 
-% Save updated table
+% === Save the final table ===
 outputFile = fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv');
 writetable(T, outputFile);
-
-disp('✅ Done! File saved with morning and afternoon correlation values.');
+disp('✅ Done! Final table saved with morning and afternoon correlation values.');
