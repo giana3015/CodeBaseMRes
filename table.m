@@ -165,3 +165,33 @@ for i = 1:length(mouseFolders)
 end
 
 disp('✅ All PNGs copied and renamed!');
+
+% Load the data
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+T.MouseID = string(T.MouseID);
+uniqueMice = unique(T.MouseID);
+
+% Initialize figure
+figure;
+hold on;
+
+% For each mouse, compute mean Morning and Afternoon
+for i = 1:numel(uniqueMice)
+    mouse = uniqueMice(i);
+    idx = T.MouseID == mouse;
+
+    % Get per-mouse mean
+    m = mean(T.MorningCorr(idx), 'omitnan');
+    a = mean(T.AfternoonCorr(idx), 'omitnan');
+
+    % Plot the line for this mouse
+    plot([1, 2], [m, a], '-o', 'Color', [0.4 0.4 0.8 0.4], 'MarkerSize', 5);
+end
+
+% Format the plot
+xlim([0.8 2.2])
+xticks([1 2])
+xticklabels({'Morning', 'Afternoon'})
+ylabel('Mean Correlation')
+title('Per-Mouse Correlation Trend: Morning to Afternoon')
+grid on
