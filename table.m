@@ -80,3 +80,35 @@ fprintf('\n✅ DONE! Final saved to: %s\n', outputFile);
 clc;                % Clear Command Window
 clearvars;          % Clear all variables
 close all;          % Close all figure windows
+
+% === Load your CSV ===
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+
+% === Group by MouseID ===
+G = findgroups(T.MouseID);
+
+% === Compute mean values per mouse ===
+mice = unique(T.MouseID);
+meanMorning = splitapply(@(x) mean(x, 'omitnan'), T.MorningCorr, G);
+meanAfternoon = splitapply(@(x) mean(x, 'omitnan'), T.AfternoonCorr, G);
+meanFullDay = splitapply(@(x) mean(x, 'omitnan'), T.MeanCorrValue, G);
+
+% === Stack values for scatter ===
+% Each mouse gets 3 values: [Morning, Afternoon, FullDay]
+xLabels = {'Morning', 'Afternoon', 'Full Day'};
+x = repelem(1:3, numel(mice))';  % 1,1,1,2,2,2,...
+y = [meanMorning; meanAfternoon; meanFullDay];
+y = y(:);
+
+% === Mouse grouping (to color-code) ===
+mouseGroup = repelem(1:numel(mice), 3)';
+
+% === Plot ===
+figure;
+gscatter(x, y, mouseGroup, [], [], 12);
+xticks(1:3);
+xticklabels(xLabels);
+xlabel('Session Type');
+ylabel('Mean Correlation');
+title('Mouse-wise Mean Correlation per Session Type');
+grid on;
