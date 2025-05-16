@@ -76,6 +76,9 @@ title('Time-course of Corr (Morning & Afternoon)')
 legend('show', 'Location', 'bestoutside')
 grid on
 
+% Save current figure as PNG
+saveas(gcf, fullfile(rootFolder, 'place_cell_stability_boxplot.png'));
+
 fprintf('\n✅ DONE! Final saved to: %s\n', outputFile);
 clc;                % Clear Command Window
 clearvars;          % Clear all variables
