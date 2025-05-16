@@ -1,39 +1,59 @@
-% Load existing table
+% === Set up paths ===
 rootFolder = '/home/barrylab/Documents/Giana/Data/';
 csvFile = fullfile(rootFolder, 'all_corr_values.csv');
+
+% Load existing table
 T = readtable(csvFile);
 
 % Initialize new columns
 morningCorr = nan(height(T), 1);
 afternoonCorr = nan(height(T), 1);
 
-% Loop over rows to fill in morning and afternoon values
+% Loop through each mouse-date entry
 for i = 1:height(T)
     mouseID = T.MouseID{i};
     dateStr = T.Date{i};
-    
-    % Construct path to the day's folder
+
+    % Construct base path for this entry
     basePath = fullfile(rootFolder, 'correlation matrix', mouseID, dateStr);
-    
-    % Paths to morning and afternoon mat files
+
+    % Define paths to morning and afternoon files
     morningFile = fullfile(basePath, 'grouped morningtrail', 'meanMorningCorr.mat');
     afternoonFile = fullfile(basePath, 'grouped afternoontrail', 'meanAfternoonCorr.mat');
-    
-    % Load if file exists and assign
+
+    % Load and assign morning value
     if exist(morningFile, 'file')
         data = load(morningFile);
-        morningCorr(i) = data.(fieldnames(data){1});
+        val = struct2array(data);
+        if isscalar(val)
+            morningCorr(i) = val;
+        else
+            warning('Non-scalar value in: %s', morningFile);
+        end
+    else
+        warning('Missing file: %s', morningFile);
     end
+
+    % Load and assign afternoon value
     if exist(afternoonFile, 'file')
         data = load(afternoonFile);
-        afternoonCorr(i) = data.(fieldnames(data){1});
+        val = struct2array(data);
+        if isscalar(val)
+            afternoonCorr(i) = val;
+        else
+            warning('Non-scalar value in: %s', afternoonFile);
+        end
+    else
+        warning('Missing file: %s', afternoonFile);
     end
 end
 
-% Append columns to table
+% Append to table
 T.MorningCorr = morningCorr;
 T.AfternoonCorr = afternoonCorr;
 
 % Save updated table
-writetable(T, fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv'));
-disp('Done! File saved with morning and afternoon correlation values.');
+outputFile = fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv');
+writetable(T, outputFile);
+
+disp('✅ Done! File saved with morning and afternoon correlation values.');
