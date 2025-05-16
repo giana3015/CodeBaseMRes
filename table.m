@@ -200,3 +200,41 @@ exportgraphics(gcf, savePath, 'Resolution', 300);
 
 disp("✅ Plot saved to:");
 disp(savePath);
+
+% === Load data ===
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+T.MouseID = string(T.MouseID);
+mice = unique(T.MouseID);
+
+% === Create matrix to hold values: [mice × 3]
+nMice = numel(mice);
+corrMatrix = nan(nMice, 3);  % [Morning, Afternoon, Full Day]
+
+for i = 1:nMice
+    idx = T.MouseID == mice(i);
+    corrMatrix(i,1) = mean(T.MorningCorr(idx), 'omitnan');     % Morning
+    corrMatrix(i,2) = mean(T.AfternoonCorr(idx), 'omitnan');   % Afternoon
+    corrMatrix(i,3) = mean(T.MeanCorrValue(idx), 'omitnan');   % Full Day
+end
+
+% === Plot heatmap ===
+figure;
+imagesc(corrMatrix);
+colorbar;
+colormap('hot');
+
+% Formatting
+xticks(1:3)
+xticklabels({'Morning', 'Afternoon', 'Full Day'})
+yticks(1:nMice)
+yticklabels(mice)
+xlabel('Session')
+ylabel('Mouse ID')
+title('Mean Correlation per Mouse per Session')
+
+% === Save as PNG ===
+savePath = '/home/barrylab/Documents/Giana/Data/per_mouse_correlation_heatmap.png';
+exportgraphics(gcf, savePath, 'Resolution', 300);
+
+disp("✅ Heatmap saved to:");
+disp(savePath);
