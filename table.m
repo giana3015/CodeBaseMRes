@@ -61,3 +61,7 @@ T.AfternoonCorr = afternoonCorr;
 outputFile = fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv');
 writetable(T, outputFile);
 disp('✅ Done! Final table saved with morning and afternoon correlation values.');
+
+clc;                % Clear Command Window
+clearvars;          % Clear all variables
+close all;          % Close all figure windows
