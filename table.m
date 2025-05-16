@@ -81,61 +81,25 @@ clc;                % Clear Command Window
 clearvars;          % Clear all variables
 close all;          % Close all figure windows
 
-% Load table
+% Load your processed CSV with mean correlations
 T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
 
-% Ensure consistent formatting
+% Make sure MouseID is a string
 T.MouseID = string(T.MouseID);
-
-% Get unique mice
 mice = unique(T.MouseID);
 
-% Preallocate
+% Preallocate arrays
 meanMorning = zeros(numel(mice), 1);
 meanAfternoon = zeros(numel(mice), 1);
 meanFullDay = zeros(numel(mice), 1);
 
-% Calculate mean per mouse
+% Compute per-mouse means
 for i = 1:numel(mice)
     mouse = mice(i);
-    rows = T.MouseID == mouse;
-
-    meanMorning(i) = mean(T.MorningCorr(rows), 'omitnan');
-    meanAfternoon(i) = mean(T.AfternoonCorr(rows), 'omitnan');
-    meanFullDay(i) = mean(T.MeanCorrValue(rows), 'omitnan');
-end
-
-% Stack into long format
-x = [repmat(1, numel(mice), 1); repmat(2, numel(mice), 1); repmat(3, numel(mice), 1)];
-y = [meanMorning; meanAfternoon; meanFullDay];
-
-% Plot
-figure;
-scatter(x, y, 40, 'filled', 'MarkerFaceAlpha', 0.7)
-xticks([1 2 3])
-xticklabels({'Morning', 'Afternoon', 'Full Day'})
-xlabel('Session Type')
-ylabel('Mean Correlation per Mouse')
-title('Each Dot = One Mouse''s Mean Correlation')
-grid on
-
-% Load table
-T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
-T.MouseID = string(T.MouseID);
-mice = unique(T.MouseID);
-
-% Collect mean correlations
-meanMorning = zeros(numel(mice), 1);
-meanAfternoon = zeros(numel(mice), 1);
-meanFullDay = zeros(numel(mice), 1);
-
-for i = 1:numel(mice)
-    mouse = mice(i);
-    rows = T.MouseID == mouse;
-
-    meanMorning(i) = mean(T.MorningCorr(rows), 'omitnan');
-    meanAfternoon(i) = mean(T.AfternoonCorr(rows), 'omitnan');
-    meanFullDay(i) = mean(T.MeanCorrValue(rows), 'omitnan');
+    idx = T.MouseID == mouse;
+    meanMorning(i) = mean(T.MorningCorr(idx), 'omitnan');
+    meanAfternoon(i) = mean(T.AfternoonCorr(idx), 'omitnan');
+    meanFullDay(i) = mean(T.MeanCorrValue(idx), 'omitnan');
 end
 
 % Stack into long format
@@ -144,13 +108,18 @@ session = [repmat("Morning", numel(mice), 1);
            repmat("Afternoon", numel(mice), 1);
            repmat("Full Day", numel(mice), 1)];
 
-% Plot violin + scatter
+% Convert session to cell array for violinplot compatibility
+session = cellstr(session);
+
+% === PLOT ===
 figure;
-violinplot(y, session);
-hold on;
-scatter(double(session), y, 30, 'filled', 'MarkerFaceAlpha', 0.5)
-hold off;
+violinplot(y, session); hold on;
+
+% Overlay scatter dots
+scatter(double(categorical(session)), y, 30, 'filled', 'MarkerFaceAlpha', 0.5)
 
 ylabel('Mean Correlation per Mouse')
 title('Distribution of Place Cell Stability Across Morning, Afternoon, and Full-Day Sessions')
+xticks(1:3)
+xticklabels({'Morning', 'Afternoon', 'Full Day'})
 grid on
