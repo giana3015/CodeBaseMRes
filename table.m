@@ -238,3 +238,45 @@ exportgraphics(gcf, savePath, 'Resolution', 300);
 
 disp("✅ Heatmap saved to:");
 disp(savePath);
+
+% === Load Data ===
+T = readtable('/home/barrylab/Documents/Giana/Data/all_corr_values_with_morning_afternoon.csv');
+T.MouseID = string(T.MouseID);
+uniqueMice = unique(T.MouseID);
+
+% === Compute mean per mouse for each session ===
+meanMorning = zeros(numel(uniqueMice),1);
+meanAfternoon = zeros(numel(uniqueMice),1);
+meanFullDay = zeros(numel(uniqueMice),1);
+
+for i = 1:numel(uniqueMice)
+    idx = T.MouseID == uniqueMice(i);
+    meanMorning(i) = mean(T.MorningCorr(idx), 'omitnan');
+    meanAfternoon(i) = mean(T.AfternoonCorr(idx), 'omitnan');
+    meanFullDay(i) = mean(T.MeanCorrValue(idx), 'omitnan');
+end
+
+% === Group means and SEM ===
+means = [mean(meanMorning), mean(meanAfternoon), mean(meanFullDay)];
+sems = [std(meanMorning)/sqrt(numel(meanMorning)), ...
+        std(meanAfternoon)/sqrt(numel(meanAfternoon)), ...
+        std(meanFullDay)/sqrt(numel(meanFullDay))];
+
+% === Plot ===
+figure;
+bar(means, 'FaceColor', [0.5 0.6 0.9]); hold on;
+errorbar(1:3, means, sems, 'k.', 'LineWidth', 1.5);
+
+xticks(1:3)
+xticklabels({'Morning', 'Afternoon', 'Full Day'})
+ylabel('Mean Correlation')
+title('Group-Level Place Cell Stability Across Sessions')
+ylim([0, 1])
+grid on
+
+% === Save figure ===
+savePath = '/home/barrylab/Documents/Giana/Data/group_barplot_correlation.png';
+exportgraphics(gcf, savePath, 'Resolution', 300);
+
+disp("✅ Bar plot saved to:");
+disp(savePath);
