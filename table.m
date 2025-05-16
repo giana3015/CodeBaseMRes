@@ -58,6 +58,24 @@ T.AfternoonCorr = afternoonCorr;
 outputFile = fullfile(rootFolder, 'all_corr_values_with_morning_afternoon.csv');
 writetable(T, outputFile);
 
+uniqueMice = unique(T.MouseID);
+figure; hold on;
+
+for i = 1:length(uniqueMice)
+    mouse = uniqueMice{i};
+    subT = T(strcmp(T.MouseID, mouse), :);
+    subT = sortrows(subT, 'Date');
+    
+    plot(subT.Date, subT.MorningCorr, '-o', 'DisplayName', [mouse ' morning']);
+    plot(subT.Date, subT.AfternoonCorr, '-x', 'DisplayName', [mouse ' afternoon']);
+end
+
+xlabel('Date')
+ylabel('Correlation')
+title('Time-course of Corr (Morning & Afternoon)')
+legend('show', 'Location', 'bestoutside')
+grid on
+
 fprintf('\n✅ DONE! Final saved to: %s\n', outputFile);
 clc;                % Clear Command Window
 clearvars;          % Clear all variables
