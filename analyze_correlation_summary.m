@@ -547,3 +547,100 @@ statsTable = cell2table(results, ...
 writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
 
 disp('✅ T-tests and boxplots saved to "ad_vs_wt_correlation" folder.');
+
+% === Paths ===
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+corrFile = fullfile(rootFolder, 'summary_correlation_values.csv');
+genoFile = fullfile(rootFolder, 'Exp1_sessionList.csv');
+mergedFile = fullfile(rootFolder, 'merged_correlation_with_genotype.csv');
+outFolder = fullfile(rootFolder, 'ad_vs_wt_correlation');
+plotFolder = fullfile(outFolder, 'boxplots_with_stars');
+if ~exist(outFolder, 'dir'), mkdir(outFolder); end
+if ~exist(plotFolder, 'dir'), mkdir(plotFolder); end
+
+% === Load input data ===
+corrData = readtable(corrFile);
+genoRaw = readtable(genoFile, 'TextType', 'string');
+
+% === Process session strings ===
+AD_sessions = genoRaw{:, 1};
+WT_sessions = genoRaw{:, 2};
+AD_sessions = AD_sessions(~ismissing(AD_sessions));
+WT_sessions = WT_sessions(~ismissing(WT_sessions));
+sessionStrings = [AD_sessions; WT_sessions];
+genoLabels = [repmat("AD", numel(AD_sessions), 1); repmat("WT", numel(WT_sessions), 1)];
+
+% === Smart building of genoTable with name guards ===
+MouseIDs = strings(0,1);
+Dates = strings(0,1);
+Genotypes = strings(0,1);
+
+for i = 1:length(sessionStrings)
+    parts = split(sessionStrings(i), "_");
+    if numel(parts) == 2
+        MouseIDs(end+1) = parts(1);
+        Dates(end+1) = parts(2);
+        Genotypes(end+1) = genoLabels(i);
+    else
+        fprintf('⚠️ Skipped malformed entry: %s\n', sessionStrings(i));
+    end
+end
+
+% Build genotype table and rename if needed
+genoTable = table(MouseIDs, Dates, Genotypes);
+genoTable.Properties.VariableNames = {'MouseID', 'Date', 'Genotype'};
+
+% === Merge correlation and genotype ===
+corrData.Date = string(corrData.Date);
+mergedData = innerjoin(corrData, genoTable, 'Keys', {'MouseID', 'Date'});
+writetable(mergedData, mergedFile);
+disp('✅ Merged table saved.');
+
+% === Run t-tests and generate annotated boxplots ===
+T = mergedData;
+metrics = {'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'};
+results = {};
+
+for i = 1:length(metrics)
+    metric = metrics{i};
+    ad_vals = T{strcmp(T.Genotype, 'AD'), metric};
+    wt_vals = T{strcmp(T.Genotype, 'WT'), metric};
+    
+    [~, p, ~, stats] = ttest2(ad_vals, wt_vals);
+
+    % Significance stars
+    if p < 0.001
+        sig = '***';
+    elseif p < 0.01
+        sig = '**';
+    elseif p < 0.05
+        sig = '*';
+    else
+        sig = 'ns';
+    end
+
+    results = [results;
+        {metric, mean(wt_vals), mean(ad_vals), stats.tstat, p, sig}];
+
+    % === Plot ===
+    figure('Visible', 'off');
+    boxplot(T.(metric), T.Genotype);
+    title(sprintf('%s by Genotype (p = %.4f)', metric, p), 'FontSize', 12);
+    ylabel(metric);
+    set(gca, 'FontSize', 11);
+
+    % Annotate star
+    y = max(T.(metric)) * 1.05;
+    line([1 1 2 2], [y y+0.02 y+0.02 y], 'Color', 'k');
+    text(1.5, y+0.03, sig, 'HorizontalAlignment', 'center', 'FontSize', 14);
+
+    saveas(gcf, fullfile(plotFolder, ['boxplot_' metric '.png']));
+    close(gcf);
+end
+
+% === Save stats ===
+statsTable = cell2table(results, ...
+    'VariableNames', {'Metric', 'WT_Mean', 'AD_Mean', 't_stat', 'p_value', 'Significance'});
+writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
+
+disp('✅ All results saved: t-tests, boxplots, and summary stats.');
