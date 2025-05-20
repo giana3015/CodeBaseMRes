@@ -357,3 +357,38 @@ end
 disp('✅ Boxplots with ANOVA and Tukey post-hoc saved.');
 
 disp('✅ Boxplots with ANOVA p-values saved to "box plot with anova" folder.');
+
+% === Load both datasets ===
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+corrData = readtable(fullfile(rootFolder, 'summary_correlation_values.csv'));
+genoList = readtable(fullfile(rootFolder, 'Exp1_sessionList.csv'));
+
+% === Reshape the genotype table into long format ===
+AD_sessions = genoList{:, 1};
+WT_sessions = genoList{:, 2};
+
+% Remove empty cells and tag genotype
+AD_sessions = AD_sessions(~cellfun(@(x) any(isnan(x)), AD_sessions));
+WT_sessions = WT_sessions(~cellfun(@(x) any(isnan(x)), WT_sessions));
+
+genoLabels = [repmat({'AD'}, numel(AD_sessions), 1); repmat({'WT'}, numel(WT_sessions), 1)];
+sessionStrings = [AD_sessions; WT_sessions];
+
+% Split 'mXXXX_yyyy-mm-dd' into MouseID and Date
+splitData = split(sessionStrings, '_');
+genoTable = table;
+genoTable.MouseID = splitData(:,1);
+genoTable.Date = splitData(:,2);
+genoTable.Genotype = genoLabels;
+
+% === Merge with correlation summary table ===
+% Convert date format if needed
+corrData.Date = string(corrData.Date);
+genoTable.Date = string(genoTable.Date);
+
+% Merge based on MouseID and Date
+mergedData = innerjoin(corrData, genoTable, 'Keys', {'MouseID', 'Date'});
+
+% Save merged data
+writetable(mergedData, fullfile(rootFolder, 'merged_correlation_with_genotype.csv'));
+disp('✅ Merged table with genotype saved.');
