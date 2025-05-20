@@ -826,3 +826,65 @@ statsTable = cell2table(results, ...
 writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
 
 disp('✅ DONE — plots and stats saved.');
+
+% === Setup ===
+inFile = '/home/barrylab/Documents/Giana/Data/correlation matrix/merged_summary_correlation_values.csv';
+outFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/ad_vs_wt_simple/';
+if ~exist(outFolder, 'dir'), mkdir(outFolder); end
+
+% === Load data ===
+T = readtable(inFile);
+
+% === Metrics to compare ===
+metrics = {'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'};
+results = {};
+
+for i = 1:length(metrics)
+    metric = metrics{i};
+
+    % Pull values using clean column names
+    ad_vals = T{strcmp(T.Genotype, 'AD'), metric};
+    wt_vals = T{strcmp(T.Genotype, 'WT'), metric};
+
+    % Perform t-test
+    [~, p, ~, stats] = ttest2(ad_vals, wt_vals);
+
+    % Determine significance stars
+    if p < 0.001
+        sig = '***';
+    elseif p < 0.01
+        sig = '**';
+    elseif p < 0.05
+        sig = '*';
+    else
+        sig = 'ns';
+    end
+
+    % Save stats row
+    results = [results; {metric, mean(wt_vals), mean(ad_vals), stats.tstat, p, sig}];
+
+    % === Plot boxplot ===
+    figure('Visible', 'off');
+    boxplot(T.(metric), T.Genotype, 'Colors', 'k', 'Symbol', '');
+    title(sprintf('%s (p = %.4f)', metric, p), 'FontSize', 12);
+    ylabel(metric);
+    set(gca, 'FontSize', 11);
+
+    % Add significance annotation
+    y = max(T.(metric)) * 1.05;
+    line([1 1 2 2], [y y+0.02 y+0.02 y], 'Color', 'k');
+    text(1.5, y+0.03, sig, 'HorizontalAlignment', 'center', 'FontSize', 14);
+
+    % Save plot
+    saveas(gcf, fullfile(outFolder, ['boxplot_' metric '.png']));
+    close(gcf);
+end
+
+% === Save results table ===
+statsTable = cell2table(results, ...
+    'VariableNames', {'Metric', 'WT_Mean', 'AD_Mean', 't_stat', 'p_value', 'Significance'});
+writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
+
+disp('✅ DONE — boxplots and stats saved!');
+
+clc; clearvars; close all;
