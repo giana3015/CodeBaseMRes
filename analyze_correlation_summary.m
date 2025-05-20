@@ -764,3 +764,65 @@ statsTable = cell2table(results, ...
 writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
 
 disp('✅ Done: boxplots + stats saved.');
+
+% === Load raw table ===
+T = readtable('/home/barrylab/Documents/Giana/Data/correlation matrix/merged_summary_correlation_values.csv');
+
+% === Fix column names explicitly ===
+T.Properties.VariableNames = {'Genotype', 'MouseID', 'Date', 'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'};
+
+% === Output folder ===
+outFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/ad_vs_wt_simple/';
+if ~exist(outFolder, 'dir'), mkdir(outFolder); end
+
+% === Variables to analyze ===
+metrics = {'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'};
+results = {};
+
+for i = 1:length(metrics)
+    metric = metrics{i};
+
+    % Use hardcoded column name to avoid dot notation
+    colIdx = find(strcmp(T.Properties.VariableNames, metric));
+
+    ad_vals = T{strcmp(T{:,1}, 'AD'), colIdx};
+    wt_vals = T{strcmp(T{:,1}, 'WT'), colIdx};
+
+    [~, p, ~, stats] = ttest2(ad_vals, wt_vals);
+
+    % Significance stars
+    if p < 0.001
+        sig = '***';
+    elseif p < 0.01
+        sig = '**';
+    elseif p < 0.05
+        sig = '*';
+    else
+        sig = 'ns';
+    end
+
+    results = [results; {metric, mean(wt_vals), mean(ad_vals), stats.tstat, p, sig}];
+
+    % === Plot without dot notation ===
+    figure('Visible', 'off');
+    g = T{:,1}; % Genotype column
+    boxplot(T{:,colIdx}, g, 'Colors', 'k', 'Symbol', '');
+    title(sprintf('%s (p = %.4f)', metric, p), 'FontSize', 12);
+    ylabel(metric);
+    set(gca, 'FontSize', 11);
+
+    % Add star
+    y = max(T{:,colIdx}) * 1.05;
+    line([1 1 2 2], [y y+0.02 y+0.02 y], 'Color', 'k');
+    text(1.5, y+0.03, sig, 'HorizontalAlignment', 'center', 'FontSize', 14);
+
+    saveas(gcf, fullfile(outFolder, ['boxplot_' metric '.png']));
+    close(gcf);
+end
+
+% === Save results ===
+statsTable = cell2table(results, ...
+    'VariableNames', {'Metric', 'WT_Mean', 'AD_Mean', 't_stat', 'p_value', 'Significance'});
+writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
+
+disp('✅ DONE — plots and stats saved.');
