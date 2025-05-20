@@ -91,6 +91,11 @@ for i = 1:length(uniqueMice)
     mouse = uniqueMice{i};
     mouseData = T(strcmp(T.MouseID, mouse), :);
 
+    if height(mouseData) < 2
+        fprintf('⚠️ Skipping %s (not enough sessions for ANOVA)\n', mouse);
+        continue;
+    end
+
     vals = [mouseData.MorningCorr; mouseData.AfternoonCorr; mouseData.MorningAfternoonCorr];
     labs = [repmat({'Morning'}, height(mouseData), 1); 
             repmat({'Afternoon'}, height(mouseData), 1); 
@@ -107,17 +112,21 @@ for i = 1:length(uniqueMice)
     saveas(figMouse, fullfile(figureFolder, ['boxplot_' mouse '.png']));
     close(figMouse);
 
-    % Post-hoc
-    figPostMouse = figure('Visible', 'off');
-    multcompare(stats_mouse);
-    title(['Post-hoc - ' mouse]);
-    saveas(figPostMouse, fullfile(figureFolder, ['posthoc_' mouse '.png']));
-    close(figPostMouse);
-
     % Save ANOVA stats
     tbl_mouse_csv = cell2table(tbl_mouse(2:end,:), 'VariableNames', ...
         {'Source','SS','df','MS','F','Prob_F'});
     writetable(tbl_mouse_csv, fullfile(statFolder, ['anova_' mouse '.csv']));
+
+    % Try post-hoc
+    try
+        figPostMouse = figure('Visible', 'off');
+        multcompare(stats_mouse);
+        title(['Post-hoc - ' mouse]);
+        saveas(figPostMouse, fullfile(figureFolder, ['posthoc_' mouse '.png']));
+        close(figPostMouse);
+    catch ME
+        warning("Skipping post-hoc for %s: %s", mouse, ME.message);
+    end
 end
 
-disp('✅ All plots and stats saved to folders.');
+disp('✅ All plots and stats saved. Skipped mice were printed in terminal.');
