@@ -392,3 +392,65 @@ mergedData = innerjoin(corrData, genoTable, 'Keys', {'MouseID', 'Date'});
 % Save merged data
 writetable(mergedData, fullfile(rootFolder, 'merged_correlation_with_genotype.csv'));
 disp('✅ Merged table with genotype saved.');
+
+% === Set up paths ===
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+inFile = fullfile(rootFolder, 'merged_summary_correlation_values.csv');
+outFolder = fullfile(rootFolder, 'ad_vs_wt_correlation');
+plotFolder = fullfile(outFolder, 'boxplots_with_stars');
+
+if ~exist(outFolder, 'dir'), mkdir(outFolder); end
+if ~exist(plotFolder, 'dir'), mkdir(plotFolder); end
+
+% === Load data ===
+T = readtable(inFile);
+
+% === Metrics to test ===
+metrics = {'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'};
+results = [];
+
+% === Loop through each metric ===
+for i = 1:length(metrics)
+    metric = metrics{i};
+    ad_vals = T{strcmp(T.Genotype, 'AD'), metric};
+    wt_vals = T{strcmp(T.Genotype, 'WT'), metric};
+    
+    [~, p, ~, stats] = ttest2(ad_vals, wt_vals);
+
+    % Get significance label
+    if p < 0.001
+        sig = '***';
+    elseif p < 0.01
+        sig = '**';
+    elseif p < 0.05
+        sig = '*';
+    else
+        sig = 'ns';
+    end
+
+    % Store stats
+    results = [results; 
+        {metric, mean(wt_vals), mean(ad_vals), stats.tstat, p, sig}];
+
+    % === Generate boxplot with star ===
+    figure('Visible', 'off');
+    boxplot(T.(metric), T.Genotype);
+    title(sprintf('%s by Genotype (p = %.4f)', metric, p), 'FontSize', 12);
+    ylabel(metric);
+    set(gca, 'FontSize', 11);
+
+    % Add significance line and star
+    y = max(T.(metric)) * 1.05;
+    line([1 1 2 2], [y y+0.02 y+0.02 y], 'Color', 'k');
+    text(1.5, y+0.03, sig, 'HorizontalAlignment', 'center', 'FontSize', 14);
+
+    saveas(gcf, fullfile(plotFolder, ['boxplot_' metric '.png']));
+    close(gcf);
+end
+
+% === Save results table ===
+statsTable = cell2table(results, ...
+    'VariableNames', {'Metric', 'WT_Mean', 'AD_Mean', 't_stat', 'p_value', 'Significance'});
+writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
+
+disp('✅ T-tests and boxplots saved to "ad_vs_wt_correlation" folder.');
