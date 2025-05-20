@@ -53,7 +53,7 @@ T = cell2table(results, ...
     'VariableNames', {'MouseID', 'Date', 'MorningCorr', 'AfternoonCorr', 'MorningAfternoonCorr'});
 summaryCSV = fullfile(rootFolder, 'summary_correlation_values.csv');
 writetable(T, summaryCSV);
-disp('Saved summary table.');
+disp('✅ Saved summary table.');
 
 % === Step 3: ANOVA and Boxplot for All Mice Combined ===
 allCorrs = [T.MorningCorr; T.AfternoonCorr; T.MorningAfternoonCorr];
@@ -61,28 +61,30 @@ labels = [repmat({'Morning'}, height(T), 1);
           repmat({'Afternoon'}, height(T), 1);
           repmat({'Morning-Afternoon'}, height(T), 1)];
 
-% ANOVA
+% ANOVA (silent)
 [~, tbl_all, stats_all] = anova1(allCorrs, labels, 'off');
 
-% Save boxplot
-figAll = figure;
+% Boxplot
+figAll = figure('Visible', 'off');
 boxplot(allCorrs, labels);
 title('All Mice - Correlation Type Comparison');
 ylabel('Mean Correlation');
 saveas(figAll, fullfile(figureFolder, 'boxplot_all_mice.png'));
+close(figAll);
 
-% Save ANOVA stats as CSV
+% Post-hoc plot
+figPost = figure('Visible', 'off');
+multcompare(stats_all);
+title('Post-hoc Comparison - All Mice');
+saveas(figPost, fullfile(figureFolder, 'posthoc_all_mice.png'));
+close(figPost);
+
+% Save ANOVA stats to CSV
 tbl_all_csv = cell2table(tbl_all(2:end,:), 'VariableNames', ...
     {'Source','SS','df','MS','F','Prob_F'});
 writetable(tbl_all_csv, fullfile(statFolder, 'anova_all_mice.csv'));
 
-% Save post-hoc comparison
-figPost = figure;
-multcompare(stats_all);
-title('Post-hoc Comparison - All Mice');
-saveas(figPost, fullfile(figureFolder, 'posthoc_all_mice.png'));
-
-% === Step 4: Per-Mouse ANOVA and Plots ===
+% === Step 4: Per-Mouse ANOVA and Boxplots ===
 uniqueMice = unique(T.MouseID);
 
 for i = 1:length(uniqueMice)
@@ -94,26 +96,28 @@ for i = 1:length(uniqueMice)
             repmat({'Afternoon'}, height(mouseData), 1); 
             repmat({'Morning-Afternoon'}, height(mouseData), 1)];
 
-    % ANOVA (silent)
+    % ANOVA
     [~, tbl_mouse, stats_mouse] = anova1(vals, labs, 'off');
-    
-    % Save boxplot
-    figMouse = figure;
+
+    % Boxplot
+    figMouse = figure('Visible', 'off');
     boxplot(vals, labs);
     title(['Boxplot - ' mouse]);
     ylabel('Mean Correlation');
     saveas(figMouse, fullfile(figureFolder, ['boxplot_' mouse '.png']));
+    close(figMouse);
 
-    % Save ANOVA table
-    tbl_mouse_csv = cell2table(tbl_mouse(2:end,:), 'VariableNames', ...
-        {'Source','SS','df','MS','F','Prob_F'});
-    writetable(tbl_mouse_csv, fullfile(statFolder, ['anova_' mouse '.csv']));
-
-    % Save post-hoc
-    figPostMouse = figure;
+    % Post-hoc
+    figPostMouse = figure('Visible', 'off');
     multcompare(stats_mouse);
     title(['Post-hoc - ' mouse]);
     saveas(figPostMouse, fullfile(figureFolder, ['posthoc_' mouse '.png']));
+    close(figPostMouse);
+
+    % Save ANOVA stats
+    tbl_mouse_csv = cell2table(tbl_mouse(2:end,:), 'VariableNames', ...
+        {'Source','SS','df','MS','F','Prob_F'});
+    writetable(tbl_mouse_csv, fullfile(statFolder, ['anova_' mouse '.csv']));
 end
 
-disp('✅ All plots and stats saved.');
+disp('✅ All plots and stats saved to folders.');
