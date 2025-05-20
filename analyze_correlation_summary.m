@@ -130,3 +130,51 @@ for i = 1:length(uniqueMice)
 end
 
 disp('✅ All plots and stats saved. Skipped mice were printed in terminal.');
+
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+T = readtable(fullfile(rootFolder, 'summary_correlation_values.csv'));
+
+% === Boxplots with ANOVA p-values annotated ===
+boxFolder = fullfile(rootFolder, 'box plot with anova');
+if ~exist(boxFolder, 'dir'), mkdir(boxFolder); end
+
+% All mice combined
+allCorrs = [T.MorningCorr; T.AfternoonCorr; T.MorningAfternoonCorr];
+labels = [repmat({'Morning'}, height(T), 1); 
+          repmat({'Afternoon'}, height(T), 1);
+          repmat({'Morning-Afternoon'}, height(T), 1)];
+
+[p_all, ~, ~] = anova1(allCorrs, labels, 'off');
+fig = figure('Visible', 'off');
+boxplot(allCorrs, labels);
+title(sprintf('All Mice — ANOVA p = %.3g', p_all));
+ylabel('Mean Correlation');
+saveas(fig, fullfile(boxFolder, 'boxplot_all_mice_with_anova.png'));
+close(fig);
+
+% Each mouse individually
+uniqueMice = unique(T.MouseID);
+for i = 1:length(uniqueMice)
+    mouse = uniqueMice{i};
+    mouseData = T(strcmp(T.MouseID, mouse), :);
+
+    if height(mouseData) < 2
+        fprintf('⚠️ Skipping boxplot+ANOVA for %s (not enough sessions)\n', mouse);
+        continue;
+    end
+
+    vals = [mouseData.MorningCorr; mouseData.AfternoonCorr; mouseData.MorningAfternoonCorr];
+    labs = [repmat({'Morning'}, height(mouseData), 1); 
+            repmat({'Afternoon'}, height(mouseData), 1); 
+            repmat({'Morning-Afternoon'}, height(mouseData), 1)];
+
+    [p_mouse, ~, ~] = anova1(vals, labs, 'off');
+    fig = figure('Visible', 'off');
+    boxplot(vals, labs);
+    title(sprintf('%s — ANOVA p = %.3g', mouse, p_mouse));
+    ylabel('Mean Correlation');
+    saveas(fig, fullfile(boxFolder, ['boxplot_' mouse '_with_anova.png']));
+    close(fig);
+end
+
+disp('✅ Boxplots with ANOVA p-values saved to "box plot with anova" folder.');
