@@ -644,3 +644,63 @@ statsTable = cell2table(results, ...
 writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
 
 disp('✅ All results saved: t-tests, boxplots, and summary stats.');
+
+% === Paths ===
+inFile = '/home/barrylab/Documents/Giana/Data/correlation matrix/merged_summary_correlation_values.csv';
+outFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/ad_vs_wt_summary/';
+if ~exist(outFolder, 'dir'), mkdir(outFolder); end
+
+% === Load and prepare data ===
+T = readtable(inFile);
+
+% Create remapping index
+T.RemappingIndex = T.MorningCorr - T.MorningAfternoonCorr;
+
+% Metrics to analyze
+metrics = {'MorningCorr', 'AfternoonCorr', 'RemappingIndex'};
+results = {};
+
+% === Loop through metrics ===
+for i = 1:length(metrics)
+    metric = metrics{i};
+    ad_vals = T{strcmp(T.Genotype, 'AD'), metric};
+    wt_vals = T{strcmp(T.Genotype, 'WT'), metric};
+    
+    [~, p, ~, stats] = ttest2(ad_vals, wt_vals);
+
+    % Significance stars
+    if p < 0.001
+        sig = '***';
+    elseif p < 0.01
+        sig = '**';
+    elseif p < 0.05
+        sig = '*';
+    else
+        sig = 'ns';
+    end
+
+    % Save stats
+    results = [results;
+        {metric, mean(wt_vals), mean(ad_vals), stats.tstat, p, sig}];
+
+    % === Create boxplot with star ===
+    figure('Visible', 'off');
+    boxplot(T.(metric), T.Genotype, 'Colors', 'k', 'Symbol', '');
+    title(sprintf('%s (p = %.4f)', metric, p), 'FontSize', 12);
+    ylabel(metric);
+    set(gca, 'FontSize', 11);
+
+    y = max(T.(metric)) * 1.05;
+    line([1 1 2 2], [y y+0.02 y+0.02 y], 'Color', 'k');
+    text(1.5, y+0.03, sig, 'HorizontalAlignment', 'center', 'FontSize', 14);
+
+    saveas(gcf, fullfile(outFolder, ['boxplot_' metric '.png']));
+    close(gcf);
+end
+
+% === Save all stats to CSV ===
+statsTable = cell2table(results, ...
+    'VariableNames', {'Metric', 'WT_Mean', 'AD_Mean', 't_stat', 'p_value', 'Significance'});
+writetable(statsTable, fullfile(outFolder, 'ad_vs_wt_ttest_results.csv'));
+
+disp('✅ All done — plots and stats saved.');
