@@ -249,6 +249,111 @@ for i = 1:length(uniqueMice)
     create_boxplot_with_stats(mouseData, mouse, boxFolder);
 end
 
+% === Set root and output folder ===
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+boxFolder = fullfile(rootFolder, 'boxplot_with_anova_posthoc');
+if ~exist(boxFolder, 'dir'), mkdir(boxFolder); end
+
+% === Load data table ===
+T = readtable(fullfile(rootFolder, 'summary_correlation_values.csv'));
+
+% === Run for all mice combined ===
+T_all = T;
+create_boxplot_with_stats(T_all, 'all_mice', boxFolder);
+
+% === Run for each mouse ===
+uniqueMice = unique(T.MouseID);
+for i = 1:length(uniqueMice)
+    mouse = uniqueMice{i};
+    mouseData = T(strcmp(T.MouseID, mouse), :);
+    create_boxplot_with_stats(mouseData, mouse, boxFolder);
+end
+
+disp('✅ Boxplots with ANOVA and Tukey post-hoc saved to "boxplot_with_anova_posthoc".');
+
+
+
+% === Function: create_boxplot_with_stats with significance stars ===
+function create_boxplot_with_stats(dataTable, subjectID, outFolder)
+    if height(dataTable) < 2
+        fprintf('⚠️ Skipping %s (not enough sessions)\n', subjectID);
+        return;
+    end
+
+    % Combine values and labels
+    vals = [dataTable.MorningCorr; dataTable.AfternoonCorr; dataTable.MorningAfternoonCorr];
+    labs = [repmat({'Morning'}, height(dataTable), 1); 
+            repmat({'Afternoon'}, height(dataTable), 1); 
+            repmat({'Morning-Afternoon'}, height(dataTable), 1)];
+
+    % Run ANOVA
+    [p_anova, ~, stats] = anova1(vals, labs, 'off');
+
+    % Run Tukey post-hoc comparison
+    try
+        [c, ~] = multcompare(stats, 'Display', 'off');
+    catch
+        fprintf('⚠️ Tukey post-hoc failed for %s\n', subjectID);
+        return;
+    end
+
+    % Significance label function
+    sig_label = @(p) ...
+        ternary(p < 0.001, '***', ...
+        ternary(p < 0.01, '**', ...
+        ternary(p < 0.05, '*', 'ns')));
+
+    % Create nicely formatted figure
+    fig = figure('Visible', 'off', 'Position', [100 100 800 600]);
+    boxplot(vals, labs, 'Colors', 'k', 'Widths', 0.5, 'Symbol', '');
+    ylabel('Mean Correlation', 'FontSize', 12);
+    title(sprintf('%s — ANOVA p = %.4g', subjectID, p_anova), ...
+          'FontSize', 14, 'FontWeight', 'bold');
+    set(gca, 'FontSize', 12);
+    grid on;
+    box on;
+
+    % Annotate Tukey post-hoc comparisons with stars
+    comparisons = {'Morning vs Afternoon', ...
+                   'Morning vs Morning-Afternoon', ...
+                   'Afternoon vs Morning-Afternoon'};
+    xPairs = [1 2; 1 3; 2 3];
+    yMax = max(vals) * 1.1;
+    yMin = min(vals);
+    sigStars = cell(3,1);
+
+    for k = 1:3
+        x = mean(xPairs(k,:));
+        y = yMax + (k-1)*0.05 * yMax;
+        pval = c(k,6);
+        label = sig_label(pval);
+        sigStars{k} = label;
+        text(x, y, sprintf('%s\n%s', comparisons{k}, label), ...
+            'HorizontalAlignment', 'center', 'FontSize', 10);
+    end
+
+    ylim([yMin*0.9, yMax + 0.2*yMax]);
+
+    % Save figure
+    saveas(fig, fullfile(outFolder, sprintf('boxplot_%s.png', subjectID)));
+    close(fig);
+
+    % Save stats as CSV
+    compTable = table(comparisons', c(:,6), sigStars, ...
+        'VariableNames', {'Comparison', 'Tukey_p', 'Significance'});
+    compTable.ANOVA_p = repmat(p_anova, 3, 1);
+    writetable(compTable, fullfile(outFolder, sprintf('stats_%s.csv', subjectID)));
+end
+
+% === Inline ternary helper function ===
+function out = ternary(cond, valTrue, valFalse)
+    if cond
+        out = valTrue;
+    else
+        out = valFalse;
+    end
+end
+
 disp('✅ Boxplots with ANOVA and Tukey post-hoc saved.');
 
 disp('✅ Boxplots with ANOVA p-values saved to "box plot with anova" folder.');
