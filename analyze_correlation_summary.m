@@ -177,4 +177,78 @@ for i = 1:length(uniqueMice)
     close(fig);
 end
 
+
+% Set root folder
+rootFolder = '/home/barrylab/Documents/Giana/Data/correlation matrix/';
+boxFolder = fullfile(rootFolder, 'boxplot_with_anova_posthoc');
+if ~exist(boxFolder, 'dir'), mkdir(boxFolder); end
+
+% Function to extract labels from multcompare output
+getLabelPair = @(i,j) [sprintf('%s vs %s', i, j)];
+
+% Function to run ANOVA + post-hoc and make annotated boxplot
+function create_boxplot_with_stats(dataTable, subjectID, outFolder)
+    if height(dataTable) < 2
+        fprintf('⚠️ Skipping %s (not enough sessions)\n', subjectID);
+        return;
+    end
+
+    vals = [dataTable.MorningCorr; dataTable.AfternoonCorr; dataTable.MorningAfternoonCorr];
+    labs = [repmat({'Morning'}, height(dataTable), 1); 
+            repmat({'Afternoon'}, height(dataTable), 1); 
+            repmat({'Morning-Afternoon'}, height(dataTable), 1)];
+
+    % Run ANOVA
+    [p_anova, tbl, stats] = anova1(vals, labs, 'off');
+
+    % Run Tukey post-hoc
+    try
+        [c, m] = multcompare(stats, 'Display', 'off');
+    catch
+        fprintf('⚠️ Tukey post-hoc failed for %s\n', subjectID);
+        return;
+    end
+
+    % Create annotated boxplot
+    fig = figure('Visible', 'off');
+    boxplot(vals, labs);
+    title(sprintf('%s — ANOVA p = %.3g', subjectID, p_anova));
+    ylabel('Mean Correlation');
+
+    % Overlay Tukey p-values on plot
+    xOffsets = [1, 1, 2];
+    yOffsets = [1.02, 1.07, 1.12];
+    comparisons = {'Morning vs Afternoon', ...
+                   'Morning vs Morning-Afternoon', ...
+                   'Afternoon vs Morning-Afternoon'};
+    for k = 1:3
+        txt = sprintf('%s\np = %.3g', comparisons{k}, c(k,6));
+        text(xOffsets(k), yOffsets(k) * max(vals), txt, ...
+             'HorizontalAlignment', 'center', 'FontSize', 8);
+    end
+
+    % Save figure
+    saveas(fig, fullfile(outFolder, sprintf('boxplot_%s.png', subjectID)));
+    close(fig);
+
+    % Save stats to CSV
+    compTable = table(comparisons', c(:,6), 'VariableNames', {'Comparison', 'Tukey_p'});
+    compTable.ANOVA_p = repmat(p_anova, 3, 1);
+    writetable(compTable, fullfile(outFolder, sprintf('stats_%s.csv', subjectID)));
+end
+
+% === Run for all mice combined ===
+T_all = T;
+create_boxplot_with_stats(T_all, 'all_mice', boxFolder);
+
+% === Run for each mouse ===
+uniqueMice = unique(T.MouseID);
+for i = 1:length(uniqueMice)
+    mouse = uniqueMice{i};
+    mouseData = T(strcmp(T.MouseID, mouse), :);
+    create_boxplot_with_stats(mouseData, mouse, boxFolder);
+end
+
+disp('✅ Boxplots with ANOVA and Tukey post-hoc saved.');
+
 disp('✅ Boxplots with ANOVA p-values saved to "box plot with anova" folder.');
