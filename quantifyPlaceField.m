@@ -42,16 +42,6 @@ imagesc(binaryField); axis image;
 title(sprintf('Place Field (>%.0f%% Peak)', threshold_frac*100));
 
 
-clc; clear; close all;
-
-% === CONFIGURATION ===
-rootFolder = '/home/barrylab/Documents/Giana/Data';
-binSize_cm = 2;
-threshold_frac = 0.3;
-
-% === FIND ALL FILES ===
-files = dir(fullfile(rootFolder, 'm*', '*', 'PC_ratemaps', 'ratemap_cell*.mat'));
-
 % === Prepare a container for all data ===
 allRows = {};
 
@@ -78,7 +68,7 @@ for f = 1:length(files)
     vars = fieldnames(S);
     ratemap = S.(vars{1});
 
-    % Handle empty or invalid maps
+    % Compute metrics
     if isempty(ratemap) || all(isnan(ratemap(:)))
         peak = NaN;
         fieldSize = NaN;
@@ -91,15 +81,14 @@ for f = 1:length(files)
         fieldSize = nBins * binSize_cm^2;
     end
 
-    % Append row
-    allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
+    % Append as flat row
+    allRows(end+1, :) = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
 end
 
-% === Convert to table and write single CSV ===
-T = cell2table(vertcat(allRows{:}), ...
+% === Convert to table and save ===
+T = cell2table(allRows, ...
     'VariableNames', {'MouseID', 'Date', 'Cell', 'Trial', 'PeakRate_Hz', 'FieldSize_cm2', 'FileName'});
 
-% Save it
 outPath = fullfile(rootFolder, 'place_field_metrics_all_mice.csv');
 writetable(T, outPath);
 
