@@ -445,3 +445,8 @@ end
 fclose(fid);
 
 fprintf('\n✅ Master CSV written to:\n%s\n', outputCSV);
+
+files = dir('/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/ratemap*.mat');
+for i = 1:length(files)
+    disp(files(i).name)
+end
