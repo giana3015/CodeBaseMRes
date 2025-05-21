@@ -111,23 +111,25 @@ dateStr = '20200924';
 binSize_cm = 2;
 threshold_frac = 0.3;
 
+% === PATH TO RATEMAPS ===
 pcRatemapFolder = fullfile('/home/barrylab/Documents/Giana/Data', mouseID, dateStr, 'PC_ratemaps');
 outCSV = fullfile(pcRatemapFolder, sprintf('%s_%s_place_fields.csv', mouseID, dateStr));
 
-% === GET ALL .mat FILES IN FOLDER ===
+% === GET ALL .mat FILES IN THE PC_ratemaps FOLDER ===
 files = dir(fullfile(pcRatemapFolder, '*.mat'));
-fprintf('🔍 Found %d files in: %s\n', length(files), pcRatemapFolder);
+fprintf('🔍 Found %d .mat files in %s\n', length(files), pcRatemapFolder);
 
-% === PREPARE DATA ===
+% === PREPARE TO COLLECT RESULTS ===
 allRows = {};
 
 for f = 1:length(files)
     filePath = fullfile(files(f).folder, files(f).name);
     fileName = files(f).name;
 
-    % Try to extract cell and trial number from filename
+    % Try to extract cell and trial numbers from filename
     tokens = regexp(fileName, 'cell(\d+)_trail(\d+)', 'tokens');
     if isempty(tokens)
+        warning('⚠️ Skipping unparseable file: %s', fileName);
         cellNum = NaN;
         trialNum = NaN;
     else
@@ -138,9 +140,9 @@ for f = 1:length(files)
     % Load ratemap
     S = load(filePath);
     vars = fieldnames(S);
-    ratemap = S.(vars{1});
+    ratemap = S.(vars{1});  % assumes 1 variable per .mat file
 
-    % Compute metrics
+    % Compute peak and field size
     if isempty(ratemap) || all(isnan(ratemap(:)))
         peak = NaN;
         fieldSize = NaN;
@@ -148,16 +150,16 @@ for f = 1:length(files)
         peak = max(ratemap(:), [], 'omitnan');
         thresh = threshold_frac * peak;
         binaryField = ratemap > thresh;
-        binaryField = bwareaopen(binaryField, 5);  % remove small blobs
+        binaryField = bwareaopen(binaryField, 5);  % remove small specks
         nBins = sum(binaryField(:));
         fieldSize = nBins * binSize_cm^2;
     end
 
-    % Add row
+    % Store result row
     allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
 end
 
-% === WRITE MANUAL CSV ===
+% === SAVE TO CSV USING fprintf (no cell2table, no T) ===
 if isempty(allRows)
     error('❌ No valid ratemaps processed.');
 end
@@ -173,8 +175,4 @@ end
 
 fclose(fid);
 
-fprintf('\n✅ Place field CSV written to:\n%s\n', outCSV);
-outPath = fullfile(pcRatemapFolder, sprintf('%s_%s_place_fields.csv', mouseID, dateStr));
-writetable(T, outPath);
-
-fprintf('\n✅ Saved place field metrics to:\n%s\n', outPath);
+fprintf('\n✅ CSV saved to:\n%s\n', outCSV);
