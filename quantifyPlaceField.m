@@ -46,39 +46,39 @@ clc; clear; close all;
 
 % === CONFIGURATION ===
 rootFolder = '/home/barrylab/Documents/Giana/Data';
-binSize_cm = 2;               % spatial bin size in cm (e.g. 2×2 cm)
-threshold_frac = 0.3;         % threshold as % of peak firing
+binSize_cm = 2;               % spatial bin size in cm
+threshold_frac = 0.3;         % threshold as % of peak firing rate
 
-% === FIND ALL RATEMAP FILES ===
-files = dir(fullfile(rootFolder, 'm*', '*', 'PC_ratemaps', 'ratemap_cell*.mat'));
+% === FIND ALL MATCHING FILES ===
+files = dir(fullfile(rootFolder, 'm*', '*', 'PC_ratemaps', 'ratemap_cell*_trail*.mat'));
 
-% === COLLECT RESULTS ===
-allRows = {};  % for building final table
+% === PREPARE CONTAINER ===
+allRows = {};  % will store one row per file
 
 for f = 1:length(files)
     filePath = fullfile(files(f).folder, files(f).name);
 
-    % Extract identifiers
+    % Extract identifiers from path
     parts = strsplit(filePath, filesep);
-    mouseID = parts{end-2};        % e.g., 'm4005'
-    dateStr = parts{end-1};        % e.g., '20200924'
-    fileName = files(f).name;      % e.g., 'ratemap_cell01trail1.mat'
+    mouseID = parts{end-2};       % e.g. 'm4005'
+    dateStr = parts{end-1};       % e.g. '20200924'
+    fileName = files(f).name;
 
-    % Parse cell and trial number
-    tokens = regexp(fileName, 'cell(\d+)trail(\d+)', 'tokens');
+    % Extract cell and trial numbers from filename
+    tokens = regexp(fileName, 'cell(\d+)_trail(\d+)', 'tokens');
     if isempty(tokens)
-        warning('Could not parse cell/trial from %s — skipping.', fileName);
+        warning('❌ Could not parse cell/trial from %s — skipping.', fileName);
         continue;
     end
     cellNum = str2double(tokens{1}{1});
     trialNum = str2double(tokens{1}{2});
 
-    % Load ratemap
+    % Load the ratemap
     S = load(filePath);
     vars = fieldnames(S);
-    ratemap = S.(vars{1});  % assume only 1 variable in the .mat file
+    ratemap = S.(vars{1});  % assume only 1 variable per file
 
-    % Compute peak and place field size
+    % Check for valid data
     if isempty(ratemap) || all(isnan(ratemap(:)))
         peak = NaN;
         fieldSize = NaN;
@@ -88,22 +88,23 @@ for f = 1:length(files)
         binaryField = ratemap > thresh;
         binaryField = bwareaopen(binaryField, 5);  % remove small specks
         nBins = sum(binaryField(:));
-        fieldSize = nBins * binSize_cm^2;
+        fieldSize = nBins * (binSize_cm^2);
     end
 
-    % Append to results
-    allRows(end+1, :) = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
+    % Append this row
+    allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
 end
 
-% === CONVERT TO TABLE AND SAVE ===
-T = cell2table(allRows, ...
+% === CONVERT TO TABLE & SAVE ===
+if isempty(allRows)
+    error('⚠️ No valid ratemap files were found or processed.');
+end
+
+T = cell2table(vertcat(allRows{:}), ...
     'VariableNames', {'MouseID', 'Date', 'Cell', 'Trial', 'PeakRate_Hz', 'FieldSize_cm2', 'FileName'});
 
+% Save to CSV
 outPath = fullfile(rootFolder, 'place_field_metrics_all_mice.csv');
 writetable(T, outPath);
 
-fprintf('\n✅ All place field data saved to:\n%s\n', outPath);
-outPath = fullfile(rootFolder, 'place_field_metrics_all_mice.csv');
-writetable(T, outPath);
-
-fprintf('\n✅ All data saved to: %s\n', outPath);
+fprintf('\n✅ All place field metrics saved to:\n%s\n', outPath);
