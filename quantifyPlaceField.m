@@ -46,39 +46,37 @@ clc; clear; close all;
 
 % === CONFIGURATION ===
 mouseID = 'm4005';
-rootFolder = '/home/barrylab/Documents/Giana/Data';
+dateStr = '20200924';
+pcRatemapFolder = fullfile('/home/barrylab/Documents/Giana/Data', mouseID, dateStr, 'PC_ratemaps');
 binSize_cm = 2;
 threshold_frac = 0.3;
 
-% === GET ALL FILES JUST FOR m4005 ===
-files = dir(fullfile(rootFolder, mouseID, '*', 'PC_ratemaps', '*.mat'));
+% === GET ALL .mat FILES IN PC_ratemaps ===
+files = dir(fullfile(pcRatemapFolder, '*.mat'));
+fprintf('🔍 Found %d files in %s\n', length(files), pcRatemapFolder);
 
-fprintf('🔍 Found %d files for %s\n', length(files), mouseID);
 allRows = {};
 
 for f = 1:length(files)
     filePath = fullfile(files(f).folder, files(f).name);
     fileName = files(f).name;
 
-    % Extract date from folder
-    parts = strsplit(filePath, filesep);
-    dateStr = parts{end-1};  % should be yyyyMMdd
-
-    % Try to extract cell and trial numbers
+    % Try to extract cell/trial numbers if possible
     tokens = regexp(fileName, 'cell(\d+)_trail(\d+)', 'tokens');
     if isempty(tokens)
-        warning('⚠️ Could not parse cell/trial from: %s — skipping.', fileName);
-        continue;
+        cellNum = NaN;
+        trialNum = NaN;
+    else
+        cellNum = str2double(tokens{1}{1});
+        trialNum = str2double(tokens{1}{2});
     end
-    cellNum = str2double(tokens{1}{1});
-    trialNum = str2double(tokens{1}{2});
 
     % Load ratemap
     S = load(filePath);
     vars = fieldnames(S);
-    ratemap = S.(vars{1});  % assume only 1 variable per file
+    ratemap = S.(vars{1});
 
-    % Compute peak + field size
+    % Compute peak rate and place field size
     if isempty(ratemap) || all(isnan(ratemap(:)))
         peak = NaN;
         fieldSize = NaN;
@@ -95,15 +93,16 @@ for f = 1:length(files)
     allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
 end
 
-% === BUILD FINAL TABLE & SAVE ===
+% === FINAL OUTPUT ===
 if isempty(allRows)
-    error('❌ No valid ratemaps were processed for m4005.');
+    error('❌ No valid ratemaps found in PC_ratemaps folder.');
 end
 
 T = cell2table(vertcat(allRows{:}), ...
     'VariableNames', {'MouseID', 'Date', 'Cell', 'Trial', 'PeakRate_Hz', 'FieldSize_cm2', 'FileName'});
 
-outPath = fullfile(rootFolder, [mouseID '_place_field_metrics.csv']);
+% Save
+outPath = fullfile(pcRatemapFolder, sprintf('%s_%s_place_fields.csv', mouseID, dateStr));
 writetable(T, outPath);
 
-fprintf('\n✅ Done! Saved place field metrics for %s to:\n%s\n', mouseID, outPath);
+fprintf('\n✅ Saved place field metrics to:\n%s\n', outPath);
