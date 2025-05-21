@@ -102,6 +102,78 @@ T = cell2table(vertcat(allRows{:}), ...
     'VariableNames', {'MouseID', 'Date', 'Cell', 'Trial', 'PeakRate_Hz', 'FieldSize_cm2', 'FileName'});
 
 % Save
+
+clc; clear; close all;
+
+% === CONFIGURATION ===
+mouseID = 'm4005';
+dateStr = '20200924';
+binSize_cm = 2;
+threshold_frac = 0.3;
+
+pcRatemapFolder = fullfile('/home/barrylab/Documents/Giana/Data', mouseID, dateStr, 'PC_ratemaps');
+outCSV = fullfile(pcRatemapFolder, sprintf('%s_%s_place_fields.csv', mouseID, dateStr));
+
+% === GET ALL .mat FILES IN FOLDER ===
+files = dir(fullfile(pcRatemapFolder, '*.mat'));
+fprintf('🔍 Found %d files in: %s\n', length(files), pcRatemapFolder);
+
+% === PREPARE DATA ===
+allRows = {};
+
+for f = 1:length(files)
+    filePath = fullfile(files(f).folder, files(f).name);
+    fileName = files(f).name;
+
+    % Try to extract cell and trial number from filename
+    tokens = regexp(fileName, 'cell(\d+)_trail(\d+)', 'tokens');
+    if isempty(tokens)
+        cellNum = NaN;
+        trialNum = NaN;
+    else
+        cellNum = str2double(tokens{1}{1});
+        trialNum = str2double(tokens{1}{2});
+    end
+
+    % Load ratemap
+    S = load(filePath);
+    vars = fieldnames(S);
+    ratemap = S.(vars{1});
+
+    % Compute metrics
+    if isempty(ratemap) || all(isnan(ratemap(:)))
+        peak = NaN;
+        fieldSize = NaN;
+    else
+        peak = max(ratemap(:), [], 'omitnan');
+        thresh = threshold_frac * peak;
+        binaryField = ratemap > thresh;
+        binaryField = bwareaopen(binaryField, 5);  % remove small blobs
+        nBins = sum(binaryField(:));
+        fieldSize = nBins * binSize_cm^2;
+    end
+
+    % Add row
+    allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
+end
+
+% === WRITE MANUAL CSV ===
+if isempty(allRows)
+    error('❌ No valid ratemaps processed.');
+end
+
+fid = fopen(outCSV, 'w');
+fprintf(fid, 'MouseID,Date,Cell,Trial,PeakRate_Hz,FieldSize_cm2,FileName\n');
+
+for i = 1:length(allRows)
+    row = allRows{i};
+    fprintf(fid, '%s,%s,%g,%g,%.4f,%.4f,%s\n', ...
+        row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7});
+end
+
+fclose(fid);
+
+fprintf('\n✅ Place field CSV written to:\n%s\n', outCSV);
 outPath = fullfile(pcRatemapFolder, sprintf('%s_%s_place_fields.csv', mouseID, dateStr));
 writetable(T, outPath);
 
