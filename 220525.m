@@ -1,30 +1,32 @@
 clc; clear; close all;
 
 % === CONFIGURATION ===
-rootFolder = '/home/barrylab/Documents/Giana/Data';
+mouseID = 'm4020';
+rootFolder = fullfile('/home/barrylab/Documents/Giana/Data', mouseID);
 binSize_cm = 2;
 threshold_frac = 0.3;
-outputCSV = fullfile(rootFolder, 'place_field_metrics_all_mice.csv');
+outputCSV = fullfile(rootFolder, sprintf('%s_all_dates_place_fields.csv', mouseID));
 
-% === FIND ALL PC_ratemaps FOLDERS ===
-folders = dir(fullfile(rootFolder, 'm*', '2*', 'PC_ratemaps'));
-fprintf('🔍 Found %d PC_ratemaps folders.\n', length(folders));
-
+% === GET ALL DATE FOLDERS (start with 2*) ===
+dateFolders = dir(fullfile(rootFolder, '2*'));
 allRows = {};
 
-for k = 1:length(folders)
-    pcFolder = fullfile(folders(k).folder, folders(k).name);
-    [~, dateStr] = fileparts(folders(k).folder);                     % folder above PC_ratemaps
-    [~, mouseID] = fileparts(fileparts(folders(k).folder));          % folder above that = mXXXX
+for d = 1:length(dateFolders)
+    dateStr = dateFolders(d).name;
+    pcFolder = fullfile(rootFolder, dateStr, 'PC_ratemaps');
 
-    files = dir(fullfile(pcFolder, 'ratemap*.mat'));
-    fprintf('📂 %s | %s | %d ratemaps\n', mouseID, dateStr, length(files));
+    if ~isfolder(pcFolder)
+        continue;  % skip if PC_ratemaps folder doesn't exist
+    end
+
+    files = dir(fullfile(pcFolder, 'ratemap_cell*_trial*.mat'));
+    fprintf('📂 %s | %d ratemaps\n', dateStr, length(files));
 
     for f = 1:length(files)
         filePath = fullfile(files(f).folder, files(f).name);
         fileName = files(f).name;
 
-        % ✅ EXTRACT cell/trial numbers
+        % === EXTRACT cell/trial numbers ===
         tokens = regexp(fileName, 'cell(\d+)_trial(\d+)', 'tokens', 'once');
         if isempty(tokens)
             warning('⚠️ Could not parse cell/trial from: %s', fileName);
@@ -53,7 +55,7 @@ for k = 1:length(folders)
             fieldSize = nBins * binSize_cm^2;
         end
 
-        % ✅ APPEND ROW
+        % === APPEND ROW ===
         allRows{end+1, 1} = {mouseID, dateStr, cellNum, trialNum, peak, fieldSize, fileName};
     end
 end
@@ -69,4 +71,4 @@ for i = 1:length(allRows)
 end
 
 fclose(fid);
-fprintf('\n✅ Combined master CSV saved to:\n%s\n', outputCSV);
+fprintf('\n✅ CSV saved to: %s\n', outputCSV);
