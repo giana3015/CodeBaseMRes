@@ -114,90 +114,46 @@ fclose(fid);
 fprintf('✅ Peak tracking with distances saved to: %s\n', outputFile);
 
 % === Configuration ===
-mouseID = 'm4005';
-dateStr = '20200924';
-rootFolder = fullfile('/home/barrylab/Documents/Giana/Data', mouseID, dateStr, 'PC_ratemaps');
-
-nCells = 100;  % adjust based on how many cells you think exist
+cellID = 2;
+trial1_file = sprintf('/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/ratemap_cell%02d_trial1.mat', cellID);
+trial10_file = sprintf('/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/ratemap_cell%02d_trial10.mat', cellID);
 nShuffles = 1000;
-threshold = 0.05;
 
-rateMaps1 = [];  % trial 1
-rateMaps2 = [];  % trial 10
-validCells = [];
+% === Load ratemaps ===
+S1 = load(trial1_file); vars1 = fieldnames(S1); R1 = S1.(vars1{1});
+S2 = load(trial10_file); vars2 = fieldnames(S2); R2 = S2.(vars2{1});
 
-% === Load ratemaps for each cell ===
-for c = 1:nCells
-    try
-        f1 = fullfile(rootFolder, sprintf('ratemap_cell%02d_trial1.mat', c));
-        f2 = fullfile(rootFolder, sprintf('ratemap_cell%02d_trial10.mat', c));
-        
-        if ~isfile(f1) || ~isfile(f2)
-            continue;
-        end
-
-        S1 = load(f1); vars1 = fieldnames(S1); R1 = S1.(vars1{1});
-        S2 = load(f2); vars2 = fieldnames(S2); R2 = S2.(vars2{1});
-        
-        if isempty(R1) || isempty(R2) || any(isnan(R1(:))) || any(isnan(R2(:)))
-            continue;
-        end
-
-        % Flatten into row vector
-        rateMaps1(end+1, :) = R1(:)';
-        rateMaps2(end+1, :) = R2(:)';
-        validCells(end+1) = c;
-    catch
-        fprintf('⚠️ Failed for cell %d\n', c);
-    end
+if isempty(R1) || isempty(R2) || all(isnan(R1(:))) || all(isnan(R2(:)))
+    error('One of the ratemaps is empty or invalid.');
 end
 
-% === Compute real correlations ===
-nNeurons = size(rateMaps1, 1);
-real_corrs = zeros(nNeurons, 1);
-for i = 1:nNeurons
-    real_corrs(i) = corr(rateMaps1(i,:)', rateMaps2(i,:)', 'type', 'Pearson');
+% === Flatten ===
+map1 = R1(:)';
+map2 = R2(:)';
+
+% === Real correlation ===
+real_corr = corr(map1', map2', 'type', 'Pearson');
+
+% === Null distribution from shuffles ===
+shuffled_corrs = zeros(1, nShuffles);
+for s = 1:nShuffles
+    shift = randi(length(map2));
+    shuffled_map2 = circshift(map2, shift);
+    shuffled_corrs(s) = corr(map1', shuffled_map2', 'type', 'Pearson');
 end
 
-% === Compute shuffled null distribution + p-values ===
-shuffled_corrs = zeros(nNeurons, nShuffles);
-pvals = zeros(nNeurons, 1);
+% === Calculate p-value (two-sided) ===
+pval = mean(abs(shuffled_corrs) >= abs(real_corr));
 
-for i = 1:nNeurons
-    m1 = rateMaps1(i,:);
-    m2 = rateMaps2(i,:);
-    
-    for s = 1:nShuffles
-        shift = randi(length(m2));
-        shuffled = circshift(m2, shift);
-        shuffled_corrs(i, s) = corr(m1', shuffled', 'type', 'Pearson');
-    end
-    
-    pvals(i) = mean(abs(shuffled_corrs(i,:)) >= abs(real_corrs(i)));
-end
-
-% === Classify cells ===
-remapping_cells = pvals > threshold;
-stable_cells = pvals <= threshold;
-
-sig_corrs = real_corrs(stable_cells);
-nonsig_corrs = real_corrs(remapping_cells);
-
-% === Histogram + Plot ===
-edges = linspace(-1, 1, 30);
-[counts_sig, ~] = histcounts(sig_corrs, edges);
-[counts_nonsig, ~] = histcounts(nonsig_corrs, edges);
-
-figure; hold on;
-h1 = bar(edges(1:end-1), counts_nonsig, 'histc');
-h2 = bar(edges(1:end-1), counts_sig, 'histc');
-h1.FaceColor = [0.7 0.7 0.7];
-h2.FaceColor = [0.2 0.6 1.0];
-h1.EdgeColor = 'none';
-h2.EdgeColor = 'none';
-
-legend({'Remapping', 'Stable'}, 'Location', 'NorthWest');
-xlabel('Trial 1 vs Trial 10 Correlation');
-ylabel('Number of Place Cells');
-title(sprintf('Remapping Analysis for %s on %s', mouseID, dateStr));
+% === Plot ===
+figure;
+histogram(shuffled_corrs, 30, 'FaceColor', [0.7 0.7 0.7]);
+hold on;
+yL = ylim;
+plot([real_corr real_corr], yL, 'r', 'LineWidth', 2);
+text(real_corr, yL(2)*0.9, sprintf('r = %.3f\np = %.4f', real_corr, pval), ...
+    'HorizontalAlignment', 'center', 'BackgroundColor', 'w');
+xlabel('Shuffled Correlation (null)');
+ylabel('Frequency');
+title(sprintf('Trial 1 vs Trial 10 Correlation — Cell %02d', cellID));
 box on;
