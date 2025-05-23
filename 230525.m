@@ -199,3 +199,104 @@ end
 
 fclose(fid);
 fprintf('\n✅ Full CSV saved to:\n%s\n', outputCSV);
+
+clc; clear; close all;
+
+% === CONFIGURATION ===
+mouseID = 'm4005';
+rootPath = fullfile('/home/barrylab/Documents/Giana/Data', mouseID);
+outputCSV = fullfile(rootPath, sprintf('%s_all_dates_peak_drift.csv', mouseID));
+
+% === FIND ALL DATE FOLDERS ===
+dateFolders = dir(fullfile(rootPath, '2*'));  % e.g., 20200924
+dateFolders = dateFolders([dateFolders.isdir]);
+
+% === INIT STORAGE ===
+allRows = {};
+
+% === LOOP THROUGH EACH DATE ===
+for d = 1:length(dateFolders)
+    dateStr = dateFolders(d).name;
+    pcFolder = fullfile(rootPath, dateStr, 'PC_ratemaps');
+
+    if ~isfolder(pcFolder)
+        fprintf('⏭️ Skipping (no PC_ratemaps): %s\n', dateStr);
+        continue;
+    end
+
+    % === GET ALL .mat FILES ===
+    files = dir(fullfile(pcFolder, 'ratemap_cell*_trial*.mat'));
+    if isempty(files)
+        fprintf('⏭️ No ratemaps found in: %s\n', pcFolder);
+        continue;
+    end
+
+    % === EXTRACT UNIQUE CELL IDS ===
+    cellIDs = [];
+    for f = 1:length(files)
+        toks = regexp(files(f).name, 'cell(\d+)_trial(\d+)', 'tokens', 'once');
+        if ~isempty(toks)
+            cellIDs(end+1) = str2double(toks{1});
+        end
+    end
+    cellList = unique(cellIDs);
+
+    % === PROCESS EACH CELL ===
+    for i = 1:length(cellList)
+        cellID = cellList(i);
+        trialPeaks = nan(10, 2);  % (X, Y)
+
+        for trial = 1:10
+            fileName = sprintf('ratemap_cell%02d_trial%d.mat', cellID, trial);
+            filePath = fullfile(pcFolder, fileName);
+
+            if ~isfile(filePath)
+                continue;
+            end
+
+            try
+                S = load(filePath);
+                vars = fieldnames(S);
+                ratemap = S.(vars{1});
+                if isempty(ratemap) || all(isnan(ratemap(:)))
+                    continue;
+                end
+                [~, idx] = max(ratemap(:));
+                [py, px] = ind2sub(size(ratemap), idx);
+                trialPeaks(trial, :) = [px, py];
+            catch
+                fprintf('⚠️ Error reading %s\n', fileName);
+                continue;
+            end
+        end
+
+        % === Distance from Trial 1 ===
+        refX = trialPeaks(1,1);
+        refY = trialPeaks(1,2);
+
+        for trial = 1:10
+            px = trialPeaks(trial,1);
+            py = trialPeaks(trial,2);
+
+            if isnan(px) || isnan(refX)
+                dist = NaN;
+            else
+                dist = sqrt((px - refX)^2 + (py - refY)^2);
+            end
+
+            allRows{end+1,1} = {mouseID, dateStr, cellID, trial, px, py, dist};
+        end
+    end
+end
+
+% === WRITE MASTER CSV ===
+fid = fopen(outputCSV, 'w');
+fprintf(fid, 'MouseID,Date,CellID,Trial,Peak_X,Peak_Y,Distance_from_Trial1\n');
+for i = 1:length(allRows)
+    row = allRows{i};
+    fprintf(fid, '%s,%s,%d,%d,%g,%g,%.4f\n', ...
+        row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7});
+end
+fclose(fid);
+
+fprintf('\n✅ All cells across all dates saved to:\n%s\n', outputCSV);
