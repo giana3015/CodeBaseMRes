@@ -300,3 +300,116 @@ end
 fclose(fid);
 
 fprintf('\n✅ All cells across all dates saved to:\n%s\n', outputCSV);
+
+clc; clear; close all;
+
+% === CONFIGURATION ===
+dataRoot = '/home/barrylab/Documents/Giana/Data';
+outputCSV = fullfile(dataRoot, 'place_field_drift_with_genotype.csv');
+
+AD_mice = {'m4005','m4020','m4202','m4232','m4602','m4609','m4610'};
+WT_mice = {'m4098','m4101','m4201','m4230','m4376','m4578','m4604','m4605'};
+
+% === FIND ALL MOUSE FOLDERS ===
+mouseFolders = dir(fullfile(dataRoot, 'm*'));
+mouseFolders = mouseFolders([mouseFolders.isdir]);
+
+allRows = {};
+
+for m = 1:length(mouseFolders)
+    mouseID = mouseFolders(m).name;
+
+    % Assign genotype
+    if ismember(mouseID, AD_mice)
+        genotype = 'AD';
+    elseif ismember(mouseID, WT_mice)
+        genotype = 'WT';
+    else
+        fprintf('⏭️ Skipping unknown genotype: %s\n', mouseID);
+        continue;
+    end
+
+    mousePath = fullfile(dataRoot, mouseID);
+    dateFolders = dir(fullfile(mousePath, '2*'));
+    dateFolders = dateFolders([dateFolders.isdir]);
+
+    for d = 1:length(dateFolders)
+        dateStr = dateFolders(d).name;
+        pcFolder = fullfile(mousePath, dateStr, 'PC_ratemaps');
+
+        if ~isfolder(pcFolder)
+            continue;
+        end
+
+        files = dir(fullfile(pcFolder, 'ratemap_cell*_trial*.mat'));
+        if isempty(files), continue; end
+
+        % Extract all unique cell IDs
+        cellIDs = [];
+        for f = 1:length(files)
+            tok = regexp(files(f).name, 'cell(\d+)_trial(\d+)', 'tokens', 'once');
+            if ~isempty(tok)
+                cellIDs(end+1) = str2double(tok{1});
+            end
+        end
+        cellList = unique(cellIDs);
+
+        % Process each cell
+        for i = 1:length(cellList)
+            cellID = cellList(i);
+            trialPeaks = nan(10, 2); % x, y
+
+            for trial = 1:10
+                fileName = sprintf('ratemap_cell%02d_trial%d.mat', cellID, trial);
+                filePath = fullfile(pcFolder, fileName);
+                if ~isfile(filePath), continue; end
+
+                try
+                    S = load(filePath);
+                    vars = fieldnames(S);
+                    rm = S.(vars{1});
+
+                    if isempty(rm) || all(isnan(rm(:)))
+                        continue;
+                    end
+
+                    [~, idx] = max(rm(:));
+                    [py, px] = ind2sub(size(rm), idx);
+                    trialPeaks(trial, :) = [px, py];
+                catch
+                    fprintf('⚠️ Error reading %s\n', fileName);
+                    continue;
+                end
+            end
+
+            % Trial 1 reference point
+            refX = trialPeaks(1,1);
+            refY = trialPeaks(1,2);
+
+            for trial = 1:10
+                px = trialPeaks(trial,1);
+                py = trialPeaks(trial,2);
+
+                if isnan(px) || isnan(refX)
+                    dist = NaN;
+                else
+                    dist = sqrt((px - refX)^2 + (py - refY)^2);
+                end
+
+                allRows{end+1,1} = {genotype, mouseID, dateStr, cellID, trial, px, py, dist};
+            end
+        end
+    end
+end
+
+% === WRITE TO CSV ===
+fid = fopen(outputCSV, 'w');
+fprintf(fid, 'Genotype,MouseID,Date,CellID,Trial,Peak_X,Peak_Y,Distance_from_Trial1\n');
+for i = 1:length(allRows)
+    row = allRows{i};
+    fprintf(fid, '%s,%s,%s,%d,%d,%g,%g,%.4f\n', ...
+        row{1}, row{2}, row{3}, row{4}, row{5}, row{6}, row{7}, row{8});
+end
+fclose(fid);
+
+fprintf('\n✅ Final CSV with genotype saved to:\n%s\n', outputCSV);
