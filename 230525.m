@@ -124,17 +124,17 @@ S1 = load(trial1_file); vars1 = fieldnames(S1); R1 = S1.(vars1{1});
 S2 = load(trial10_file); vars2 = fieldnames(S2); R2 = S2.(vars2{1});
 
 if isempty(R1) || isempty(R2) || all(isnan(R1(:))) || all(isnan(R2(:)))
-    error('One of the ratemaps is empty or invalid.');
+    error('One of the ratemaps is empty or contains only NaNs.');
 end
 
-% === Flatten ===
+% === Flatten maps into 1D vectors ===
 map1 = R1(:)';
 map2 = R2(:)';
 
-% === Real correlation ===
+% === Compute real Pearson correlation ===
 real_corr = corr(map1', map2', 'type', 'Pearson');
 
-% === Null distribution from shuffles ===
+% === Generate null distribution by circular shifting map2 ===
 shuffled_corrs = zeros(1, nShuffles);
 for s = 1:nShuffles
     shift = randi(length(map2));
@@ -142,17 +142,28 @@ for s = 1:nShuffles
     shuffled_corrs(s) = corr(map1', shuffled_map2', 'type', 'Pearson');
 end
 
-% === Calculate p-value (two-sided) ===
+% === Compute two-sided p-value ===
 pval = mean(abs(shuffled_corrs) >= abs(real_corr));
 
 % === Plot ===
 figure;
-histogram(shuffled_corrs, 30, 'FaceColor', [0.7 0.7 0.7]);
+h = histogram(shuffled_corrs, 30, 'FaceColor', [0.7 0.7 0.7]);
 hold on;
+
+% Refresh y-limits AFTER plotting
 yL = ylim;
+
+% Plot real correlation as a vertical red line
 plot([real_corr real_corr], yL, 'r', 'LineWidth', 2);
-text(real_corr, yL(2)*0.9, sprintf('r = %.3f\np = %.4f', real_corr, pval), ...
-    'HorizontalAlignment', 'center', 'BackgroundColor', 'w');
+
+% Annotate with r and p
+text_x = real_corr;
+text_y = yL(2) * 0.95;
+label_str = sprintf('Real r = %.3f\np = %.4f', real_corr, pval);
+text(text_x, text_y, label_str, 'HorizontalAlignment', 'center', ...
+     'BackgroundColor', 'white', 'EdgeColor', 'black', 'FontSize', 10);
+
+% Final formatting
 xlabel('Shuffled Correlation (null)');
 ylabel('Frequency');
 title(sprintf('Trial 1 vs Trial 10 Correlation — Cell %02d', cellID));
