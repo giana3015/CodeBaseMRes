@@ -417,74 +417,55 @@ fprintf('\n✅ Final CSV with genotype saved to:\n%s\n', outputCSV);
 % === Configuration ===
 cellID = 2;  % Adjust this for different cells
 rootFolder = '/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps';
-outputFile = fullfile(rootFolder, sprintf('peak_tracking_cell%02d.csv', cellID));
+outputFile = fullfile(rootFolder, sprintf('peak_tracking_cell%02d_consecutive.csv', cellID));
 
-% === Initialize results ===
-results = [];
+% === Initialize storage ===
+trialPeaks = nan(10, 2); % trial × [X, Y]
 
-% === Variables to store reference (trial 1) peak ===
-refX = NaN;
-refY = NaN;
-
-% === Loop over trials ===
+% === Load peak positions for all trials ===
 for trial = 1:10
     fileName = sprintf('ratemap_cell%02d_trial%d.mat', cellID, trial);
     filePath = fullfile(rootFolder, fileName);
 
-    if ~isfile(filePath)
-        fprintf('⚠️ File not found: %s\n', fileName);
-        continue;
-    end
+    if ~isfile(filePath), continue; end
 
     raw = load(filePath);
     vars = fieldnames(raw);
-    
-    if isempty(vars)
-        fprintf('⚠️ No variables in: %s\n', fileName);
-        continue;
-    end
-
     ratemap = raw.(vars{1});
 
     if isempty(ratemap) || all(isnan(ratemap(:)))
-        fprintf('⚠️ Empty or invalid ratemap in: %s\n', fileName);
         continue;
     end
 
-    % Find peak position
     [~, idx] = max(ratemap(:));
-    [peakY, peakX] = ind2sub(size(ratemap), idx);
-
-    % If trial 1, store reference peak
-    if trial == 1
-        refX = peakX;
-        refY = peakY;
-        dist = 0;
-    else
-        dist = sqrt((peakX - refX)^2 + (peakY - refY)^2);
-    end
-
-    results(end+1, :) = [trial, peakX, peakY, dist];
+    [py, px] = ind2sub(size(ratemap), idx);
+    trialPeaks(trial, :) = [px, py];
 end
 
-% === Compute mean distance within blocks ===
-earlyBlock = results(results(:,1) <= 5, 4);   % Trials 1–5
-lateBlock  = results(results(:,1) >= 6, 4);   % Trials 6–10
+% === Compute distance between consecutive trials ===
+consecDists = nan(9, 1);
+for t = 1:9
+    if all(~isnan(trialPeaks(t,:))) && all(~isnan(trialPeaks(t+1,:)))
+        dx = trialPeaks(t+1,1) - trialPeaks(t,1);
+        dy = trialPeaks(t+1,2) - trialPeaks(t,2);
+        consecDists(t) = sqrt(dx^2 + dy^2);
+    end
+end
 
-meanEarly  = mean(earlyBlock, 'omitnan');
-meanLate   = mean(lateBlock,  'omitnan');
+% === Sum movement for block 1–5 and 6–10 ===
+% (meaning trial 1→2 to 4→5, and 6→7 to 9→10)
+earlyBlockDist = sum(consecDists(1:4), 'omitnan');  % Trials 1–5 = 1→2, 2→3, 3→4, 4→5
+lateBlockDist  = sum(consecDists(6:9), 'omitnan');  % Trials 6–10 = 6→7, 7→8, 8→9, 9→10
 
 % === Save to CSV ===
 fid = fopen(outputFile, 'w');
-fprintf(fid, 'Trial,Peak_X,Peak_Y,Distance_from_Trial1\n');
-for i = 1:size(results, 1)
-    fprintf(fid, '%d,%d,%d,%.4f\n', results(i,1), results(i,2), results(i,3), results(i,4));
+fprintf(fid, 'From_Trial,To_Trial,Distance\n');
+for t = 1:9
+    fprintf(fid, '%d,%d,%.4f\n', t, t+1, consecDists(t));
 end
-
-% Add summary rows at the bottom
-fprintf(fid, '\nSummary,,,\n');
-fprintf(fid, 'Mean_Distance_Trials_1to5,,,%0.4f\n', meanEarly);
-fprintf(fid, 'Mean_Distance_Trials_6to10,,,%0.4f\n', meanLate);
+fprintf(fid, '\nSummary,,\n');
+fprintf(fid, 'Total_Distance_T1to5,,%.4f\n', earlyBlockDist);
+fprintf(fid, 'Total_Distance_T6to10,,%.4f\n', lateBlockDist);
 fclose(fid);
 
-fprintf('✅ Peak tracking with early/late block distances saved to: %s\n', outputFile);
+fprintf('✅ Consecutive trial movement saved to: %s\n', outputFile);
