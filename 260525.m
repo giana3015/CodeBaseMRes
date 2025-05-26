@@ -130,3 +130,55 @@ function out = ternary(cond, a, b)
         out = b;
     end
 end
+
+% === Configuration ===
+input_csv = '/home/barrylab/Documents/Giana/Data/remapping_summary_all_mice.csv';
+output_csv = '/home/barrylab/Documents/Giana/Data/remapping_summary_all_mice_annotated.csv';
+
+% === Define mouse ID groups ===
+AD_mice = {'m4005', 'm4020', 'm4202', 'm4232', 'm4602', 'm4609', 'm4610'};
+WT_mice = {'m4098', 'm4101', 'm4201', 'm4230', 'm4376', 'm4578', 'm4604', 'm4605'};
+
+% === Open and read original CSV ===
+fid = fopen(input_csv, 'r');
+headerLine = fgetl(fid);
+headers = strsplit(headerLine, ',');
+
+% Read data columns as strings (everything as text)
+data = textscan(fid, '%s%s%s%f%f%f%f%s', 'Delimiter', ',', 'HeaderLines', 0);
+fclose(fid);
+
+% === Determine genotype per mouse ID ===
+mouseIDs = data{1};
+nRows = length(mouseIDs);
+genotypes = cell(nRows, 1);
+
+for i = 1:nRows
+    id = mouseIDs{i};
+    if ismember(id, AD_mice)
+        genotypes{i} = 'AD';
+    elseif ismember(id, WT_mice)
+        genotypes{i} = 'WT';
+    else
+        genotypes{i} = 'Unknown';
+    end
+end
+
+% === Write new CSV with Genotype column ===
+fid = fopen(output_csv, 'w');
+
+% Write header
+fprintf(fid, 'Genotype,%s\n', headerLine);
+
+% Write rows
+for i = 1:nRows
+    fprintf(fid, '%s,%s,%s,%s,%d,%d,%.4f,%.4f,%s\n', ...
+        genotypes{i}, ...
+        data{1}{i}, data{2}{i}, data{3}{i}, ...
+        data{4}(i), data{5}(i), ...
+        data{6}(i), data{7}(i), data{8}{i});
+end
+
+fclose(fid);
+
+disp(['Annotated CSV saved to: ' output_csv]);
