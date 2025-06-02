@@ -1,0 +1,16 @@
+% Set path to your PC_ratemaps.mat file
+filePath = '/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/PC_ratemaps.mat';
+
+% Load the file
+data = load(filePath);
+
+% Check if 'rm' exists in the file
+if isfield(data, 'rm')
+    % Count number of non-empty ratemaps (each corresponds to a place cell)
+    numPlaceCells = sum(~cellfun(@isempty, data.rm));
+    
+    % Display the result
+    fprintf('Number of place cells: %d\n', numPlaceCells);
+else
+    error('The variable ''rm'' was not found in the file.');
+end
