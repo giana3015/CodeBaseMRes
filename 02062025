@@ -1,16 +1,25 @@
-% Set path to your PC_ratemaps.mat file
-filePath = '/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/PC_ratemaps.mat';
+% Define your target folder
+folderPath = '/home/barrylab/Documents/Giana/Data/m4005/20200924/PC_ratemaps/';
 
-% Load the file
-data = load(filePath);
+% Get all ratemap files
+fileList = dir(fullfile(folderPath, 'ratemap_cell*_trial*.mat'));
 
-% Check if 'rm' exists in the file
-if isfield(data, 'rm')
-    % Count number of non-empty ratemaps (each corresponds to a place cell)
-    numPlaceCells = sum(~cellfun(@isempty, data.rm));
+% Extract cell numbers
+cellNumbers = [];
+
+for i = 1:length(fileList)
+    fileName = fileList(i).name;
+    tokens = regexp(fileName, 'ratemap_cell(\d+)_trial\d+\.mat', 'tokens');
     
-    % Display the result
-    fprintf('Number of place cells: %d\n', numPlaceCells);
-else
-    error('The variable ''rm'' was not found in the file.');
+    if ~isempty(tokens)
+        cellNum = str2double(tokens{1}{1});
+        cellNumbers(end+1) = cellNum;
+    end
 end
+
+% Count unique place cells
+uniqueCells = unique(cellNumbers);
+numPlaceCells = length(uniqueCells);
+
+% Display result
+fprintf('Number of unique place cells: %d\n', numPlaceCells);
