@@ -2,15 +2,15 @@ clc;
 clear;
 close all;
 
-% Define mouse IDs and base folder
-ad_mice = {'m4005', 'm4020', 'm4202', 'm4232', 'm4602', 'm4609', 'm4610'};
+% Define WT mouse IDs and base folder
+wt_mice = {'m4098', 'm4101', 'm4201', 'm4230', 'm4230', 'm4376', 'm4578', 'm4604', 'm4605'};
 base_path = '/home/barrylab/Documents/Giana/Data/correlation matrix';
 
 % Initialize storage
-ad_corr_matrices = {};
+wt_corr_matrices = {};
 
-for i = 1:length(ad_mice)
-    mouse = ad_mice{i};
+for i = 1:length(wt_mice)
+    mouse = wt_mice{i};
     mouse_path = fullfile(base_path, mouse);
     
     % Find all groupCorrMatrix.mat files for this mouse
@@ -22,7 +22,7 @@ for i = 1:length(ad_mice)
             data = load(file_path);
             matrix = struct2cell(data);
             matrix = matrix{1};
-            ad_corr_matrices{end+1} = matrix;
+            wt_corr_matrices{end+1} = matrix;
             fprintf('Loaded: %s\n', file_path);
         end
     else
@@ -31,22 +31,22 @@ for i = 1:length(ad_mice)
 end
 
 % Stack and average
-ad_corr_stack = cat(3, ad_corr_matrices{:});
-ad_corr_mean = mean(ad_corr_stack, 3, 'omitnan');
+wt_corr_stack = cat(3, wt_corr_matrices{:});
+wt_corr_mean = mean(wt_corr_stack, 3, 'omitnan');
 
 % Plot heatmap (poster style)
 figure('Color','w');
-imagesc(ad_corr_mean);
+imagesc(wt_corr_mean);
 axis square;
 colorbar;
-colormap(parula);         % Clean, professional colormap
+colormap(parula);
 caxis([0 1]);
 xticks(1:10); yticks(1:10);
 xlabel('Trial', 'FontSize', 12);
 ylabel('Trial', 'FontSize', 12);
-title('AD Mice — Mean Trial-by-Trial Correlation', 'FontWeight', 'bold', 'FontSize', 13);
+title('WT Mice — Mean Trial-by-Trial Correlation', 'FontWeight', 'bold', 'FontSize', 13);
 
 % Save as PNG to Data folder
-save_path = '/home/barrylab/Documents/Giana/Data/AD_mean_corr_matrix.png';
+save_path = '/home/barrylab/Documents/Giana/Data/WT_mean_corr_matrix.png';
 exportgraphics(gcf, save_path, 'Resolution', 300);
 fprintf('Saved PNG to: %s\n', save_path);
