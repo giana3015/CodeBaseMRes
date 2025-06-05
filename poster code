@@ -38,3 +38,4 @@ caxis([-1 1]);
 title('AD Mice — Mean Group Ratemap Correlation Matrix');
 xlabel('Trial'); ylabel('Trial');
 axis square;
+'/home/barrylab/Documents/Giana/Data/correlation matrix/m4005/m4005.20200924.meanCorrValue.mat
