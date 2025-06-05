@@ -1,0 +1,40 @@
+% Define mouse IDs
+ad_mice = {'m4005', 'm4020', 'm4202', 'm4232', 'm4602', 'm4609', 'm4610'};
+base_path = '/home/barrylab/Data';  % adjust if your root directory differs
+
+% Initialise cell array to hold matrices
+ad_corr_matrices = {};
+
+for i = 1:length(ad_mice)
+    mouse = ad_mice{i};
+    
+    % Find groupCorrMatrix file inside mouse folder
+    mouse_folder = fullfile(base_path, mouse);
+    files = dir(fullfile(mouse_folder, '*groupCorrMatrix.mat'));
+    
+    if ~isempty(files)
+        % Load the first matching matrix
+        file_path = fullfile(mouse_folder, files(1).name);
+        loaded = load(file_path);
+        var_name = fieldnames(loaded);
+        matrix = loaded.(var_name{1});  % assume only one variable inside
+        
+        ad_corr_matrices{end+1} = matrix;
+        fprintf('Loaded %s\n', file_path);
+    else
+        warning('No groupCorrMatrix found for %s', mouse);
+    end
+end
+
+% Stack into 3D array and compute average
+ad_corr_stack = cat(3, ad_corr_matrices{:});
+ad_corr_mean = mean(ad_corr_stack, 3);
+
+% Plot the average heatmap
+figure;
+imagesc(ad_corr_mean);
+colorbar;
+caxis([-1 1]);
+title('AD Mice — Mean Group Ratemap Correlation Matrix');
+xlabel('Trial'); ylabel('Trial');
+axis square;
